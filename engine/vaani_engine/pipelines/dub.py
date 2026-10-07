@@ -84,7 +84,7 @@ def fit_to_slot(audio: np.ndarray, sr: int, slot: float, max_stretch: float = MA
     """Speed speech up (pitch kept) when it's longer than its slot. Returns (audio, ratio applied)."""
     length = audio.shape[-1] / sr
     ratio = length / slot if slot > 0 else 1.0
-    if ratio <= 1.02:
+    if ratio <= 1.0:
         return audio, 1.0
     from pedalboard import time_stretch
 

@@ -25,21 +25,46 @@ SCHEMA = {
 }
 
 
+STYLE = {
+    "en": (
+        "Write the English a skilled professional translator would deliver for a documentary voice-over or "
+        "a polished talk: fluent, idiomatic, grammatically flawless, and articulate, in an adult, confident "
+        "register. Natural spoken English with contractions is fine; stiff, bookish or childish phrasing is not."
+    ),
+    "hi": "Write natural, fluent spoken Hindi as an educated speaker would say it, not bookish शुद्ध Hindi; "
+          "English words that Hindi speakers normally use can stay.",
+    "mr": "Write natural, fluent spoken Marathi as an educated speaker would say it, not bookish Marathi; "
+          "English words that Marathi speakers normally use can stay.",
+    "hinglish": "Write natural Hinglish as people actually say it.",
+}
+
+
 def system_prompt(src: str, tgt: str, dubbing: bool) -> str:
     target = LANGUAGE_NAMES.get(tgt, tgt)
     source = LANGUAGE_NAMES.get(src, src)
     lines = [
-        "You translate transcripts of spoken audio from Indian speakers.",
+        "You are an expert translator of spoken Indian-language content.",
         f"Source: {source}. Target: {target}.",
-        "The transcripts come from automatic speech recognition and can contain misheard words. Work out "
-        "what the speaker most likely meant from the context and translate that meaning. Never just "
-        "transliterate the source into another script.",
-        "The lines are consecutive pieces of one recording, so use the surrounding lines for context, "
-        "but translate each line on its own: return exactly one translation per input line, in order.",
-        "Write the way people actually speak, not formal written language. Keep names, brands and "
-        "technical terms recognisable; keep numbers as digits.",
-        "If a line is already in the target language, return it cleaned up but unchanged in meaning.",
-        "If a line is empty or only a filler sound, return an empty string for it.",
+        STYLE.get(tgt, ""),
+        "Translate the meaning, not the words. Restructure sentences freely so they read as if originally "
+        "written in the target language. Never produce word-for-word calques such as \"what happens is that\", "
+        "\"that is\", \"so actually what is it\" or \"in short what\".",
+        "Spoken source text is full of discourse fillers and false starts (e.g. तर, म्हणजे, काय होतं, "
+        "actually, म्हणजे थोडक्यात). Drop them or fold them into fluent phrasing unless they carry meaning.",
+        "Render repetition and redundancy the way a good writer would: keep deliberate emphasis once, in a "
+        "natural form (\"slow breathing, slow breathing, slow breathing\" → \"slow, steady breathing\"), and merge "
+        "doubled ideas (\"no tension, no stress\" → \"without any stress\").",
+        "Plain text only: no markdown, asterisks or quotation marks around titles.",
+        "The input comes from speech recognition and may contain misheard words. Infer what the speaker "
+        "meant from context. Never transliterate the source into Latin script instead of translating it.",
+        "The lines are consecutive parts of one recording and a sentence may run across lines. Use the whole "
+        "passage for context, but keep each line's content in that line (each is voiced in its own time "
+        "slot), so that every line reads well on its own and the lines flow naturally in sequence. Return "
+        "exactly one translation per input line, in order.",
+        "Keep names, titles (e.g. book titles), and established terms such as pranayama or Bhastrika as they "
+        "are. Keep numbers as digits.",
+        "If a line is already in the target language, return it polished but unchanged in meaning. If a line "
+        "is empty or only a filler sound, return an empty string.",
     ]
     if tgt == "hinglish":
         lines.append("Keep English words that Indians normally say in English (phone, meeting, office) in English.")
@@ -47,10 +72,9 @@ def system_prompt(src: str, tgt: str, dubbing: bool) -> str:
         lines.append(
             "These lines will be spoken by a dubbing voice in the same time slot as the original. Each line "
             "has a 'max_syllables' budget. It is an upper limit, not a target: shorter is fine, so never pad a "
-            "line or repeat words or phrases to fill it. Keep the meaning, drop filler words, and write natural, "
-            "speakable sentences.")
+            "line or repeat words or phrases to fill it.")
     lines.append('Reply with JSON only: {"translations": ["...", ...]}.')
-    return "\n".join(lines)
+    return "\n".join(line for line in lines if line)
 
 
 def user_message(texts: list[str], tgt: str, durations: list[float] | None) -> str:
@@ -155,3 +179,9 @@ def is_in_language(text: str, lang: str) -> bool:
             return True
         return sum(w in ENGLISH_COMMON for w in words) / len(words) >= 0.15
     return True
+
+
+def clean_output(text: str) -> str:
+    """Remove markdown emphasis an LLM may add (e.g. *Book Title*); subtitles and voices want plain text."""
+    text = re.sub(r"(\*{1,2}|_{1,2})(\S(?:.*?\S)?)\1", r"\2", text)
+    return " ".join(text.replace("*", "").split())

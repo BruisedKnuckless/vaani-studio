@@ -26,7 +26,7 @@ API keys go in **Settings**, which saves them in the macOS Keychain.
 
 | Key | Used for |
 |---|---|
-| Sarvam AI | Best Marathi/Hindi/Hinglish transcription, Mayura translation, voice-cloned speech in English, Hindi and Marathi |
+| Sarvam AI | Best Marathi/Hindi/Hinglish transcription, Sarvam-105B translation (natural, meaning-based), voice-cloned speech and studio voices in English, Hindi and Marathi |
 | Anthropic | Claude translation: context-aware, Hinglish, shortened lines for dubbing |
 | OpenAI | gpt-4o-transcribe and GPT translation |
 | Hugging Face (free) | Unlocks AI4Bharat's gated models: IndicConformer (local Marathi transcription) and IndicTrans2 (local translation). Accept each model's terms on huggingface.co first. |
@@ -41,8 +41,8 @@ With no keys, everything still runs locally.
 | Noise removal | DeepFilterNet 3 (fast), MossFormer2 48K (high quality, MLX), spectral gate | (none) |
 | Polish | EQ, de-esser, compressor, loudness normalisation with a look-ahead peak limiter | (none) |
 | Transcription | Whisper large-v3 turbo (MLX); IndicConformer 600M for Marathi (needs HF token) | Sarvam Saaras v4 (`translit` mode for Hinglish), OpenAI gpt-4o-transcribe |
-| Translation | IndicTrans2 (needs HF token), Qwen3 4B (MLX) for Hinglish and dubbing-length lines | Claude, OpenAI, Sarvam Mayura |
-| Voice-cloned speech | Chatterbox multilingual (MLX) for English and Hindi; MMS-TTS + Chatterbox voice conversion for Marathi | Sarvam voice cloning (Bulbul) |
+| Translation | Gemma 3 12B (MLX), IndicTrans2 (needs HF token), Qwen3 4B for Hinglish | Claude, OpenAI, Sarvam-105B, Sarvam Mayura (literal) |
+| Voice-cloned speech | Chatterbox multilingual (MLX) for English and Hindi; MMS-TTS + Chatterbox voice conversion for Marathi | Sarvam voice cloning (Bulbul), or Sarvam studio voices |
 
 **Auto** mode prefers:
 - Sarvam for Marathi and Hinglish transcription

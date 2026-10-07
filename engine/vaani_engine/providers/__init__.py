@@ -8,7 +8,8 @@ def build_registry(settings: Settings) -> Registry:
     """Register every provider. Imports here are light: heavy libraries load on first use."""
     from .cloud.anthropic_provider import ClaudeTranslator
     from .cloud.openai_provider import OpenAIASR, OpenAITranslator
-    from .cloud.sarvam import SarvamASR, SarvamStudioVoice, SarvamTranslator, SarvamVoiceClone
+    from .cloud.sarvam import (SarvamASR, SarvamLLMTranslator, SarvamStudioVoice, SarvamTranslator,
+                               SarvamVoiceClone)
     from .local.asr import IndicConformer, WhisperMarathi, WhisperMLX
     from .local.enhance import BasicDenoiser, DeepFilterNetDenoiser, DemucsSeparator, MossFormerDenoiser
     from .local.indictrans import IndicTrans2
@@ -22,7 +23,7 @@ def build_registry(settings: Settings) -> Registry:
         # speech recognition
         WhisperMLX(), WhisperMarathi(), IndicConformer(), SarvamASR(), OpenAIASR(),
         # translation
-        IndicTrans2(), LocalLLMLargeTranslator(), LocalLLMTranslator(), ClaudeTranslator(), OpenAITranslator(), SarvamTranslator(),
+        IndicTrans2(), LocalLLMLargeTranslator(), LocalLLMTranslator(), ClaudeTranslator(), OpenAITranslator(), SarvamLLMTranslator(), SarvamTranslator(),
         # voice-cloned speech and voice matching
         ChatterboxTTS(), MMSMarathiClone(), SarvamVoiceClone(), SarvamStudioVoice(), ChatterboxVoiceMatch(),
     ):

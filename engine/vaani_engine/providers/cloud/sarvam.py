@@ -11,7 +11,8 @@ import numpy as np
 
 from ...config import settings
 from ..asr_base import ChunkedASR
-from ..base import TTS, ProgressFn, Translator, noop_progress
+from .. import translation_prompt as tp
+from ..base import TTS, ProgressFn, ProviderError, Translator, noop_progress
 from .common import request_with_retry, wav_bytes
 
 BASE = "https://api.sarvam.ai"
@@ -30,7 +31,7 @@ class SarvamASR(ChunkedASR):
     key_name = "sarvam"
     languages = frozenset({"auto", "en", "hi", "mr", "hinglish"})
     rank = 10
-    max_chunk_s = 25.0  # the REST endpoint takes up to 30 s per request
+    max_chunk_s = 15.0  # the endpoint takes up to 30 s; shorter lines make better subtitles and dub timing
 
     def _request(self, audio: np.ndarray, language: str) -> dict:
         data = {"language_code": BCP47.get(language, "unknown")}
@@ -51,6 +52,53 @@ class SarvamASR(ChunkedASR):
 
     def transcribe_chunk(self, audio: np.ndarray, language: str) -> str:
         return self._request(audio, language).get("transcript", "")
+
+
+class SarvamLLMTranslator(Translator):
+    """Sarvam-105B (chat model, strong in Indian languages) with Vaani's translation instructions:
+    fluent, idiomatic output that translates meaning rather than words, and fits dubbing time slots."""
+
+    id = "sarvam_llm"
+    name = "Sarvam-105B"
+    kind = "cloud"
+    key_name = "sarvam"
+    languages = frozenset({"auto", "en", "hi", "mr", "hinglish"})
+    rank = 25
+    follows_length = True
+
+    def translate(self, texts, src, tgt, durations=None, progress: ProgressFn = noop_progress):
+        import json
+
+        key = settings.key("sarvam") or ""
+        headers = {"api-subscription-key": key, "Authorization": f"Bearer {key}"}
+        system = tp.system_prompt(src, tgt, dubbing=durations is not None)
+        out: list[str] = []
+        for offset, batch, batch_durations in tp.batches(texts, durations, size=30):
+            progress(offset / max(len(texts), 1), f"Translating {offset + 1}–{offset + len(batch)}")
+            body = {
+                "model": "sarvam-105b",
+                "messages": [{"role": "system", "content": system},
+                             {"role": "user", "content": tp.user_message(batch, tgt, batch_durations)}],
+                "temperature": 0.3,
+                "max_tokens": 8192,
+                "response_format": {"type": "json_schema",
+                                    "json_schema": {"name": "translations", "schema": tp.SCHEMA, "strict": True}},
+            }
+            response = request_with_retry("POST", f"{BASE}/v1/chat/completions", service="Sarvam",
+                                          headers=headers, json=body, timeout=300.0)
+            choice = response.json()["choices"][0]
+            if choice.get("finish_reason") == "length":
+                raise ProviderError("Sarvam-105B: the translation was cut off (transcript too long for one request)")
+            content = (choice.get("message") or {}).get("content") or ""
+            try:
+                items = json.loads(content)["translations"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                items = tp.parse(content, len(batch))
+            if len(items) != len(batch):
+                raise ProviderError(f"Sarvam-105B returned {len(items)} lines for {len(batch)}")
+            out.extend(str(t) for t in items)
+        progress(1.0, "Translated")
+        return out
 
 
 class SarvamTranslator(Translator):

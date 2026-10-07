@@ -100,3 +100,9 @@ def test_language_check_catches_transliteration_from_the_failed_dub():
     assert tp.is_in_language("प्राणायामामध्ये आपण नेहमी म्हणतो", "mr")
     assert not tp.is_in_language("pranayama mein hum kahte hain", "hi")
     assert tp.is_in_language("pranayama mein hum kahte hain", "hinglish")
+
+
+def test_clean_output_strips_markdown_emphasis():
+    assert tp.clean_output("Read *The Science of Pranayama Made Simple*.") == "Read The Science of Pranayama Made Simple."
+    assert tp.clean_output("It's **really** _good_") == "It's really good"
+    assert tp.clean_output("Breathe  slowly ") == "Breathe slowly"

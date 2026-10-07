@@ -65,7 +65,7 @@ def translate(ctx, transcript: Transcript, tgt: str, start: float, end: float,
               durations: list[float] | None = None) -> list[int]:
     """Translate every segment. Returns the indexes of lines that still aren't in the
     target language after one retry (usually because the transcript itself was wrong)."""
-    from ..providers.translation_prompt import is_in_language
+    from ..providers.translation_prompt import clean_output, is_in_language
 
     texts = [s.text for s in transcript.segments]
     if not texts:
@@ -74,6 +74,7 @@ def translate(ctx, transcript: Transcript, tgt: str, start: float, end: float,
     translations = ctx.run_stage(
         Stage.TRANSLATE,
         lambda p: p.translate(texts, src, tgt, durations, ctx.span(start, end, "Translating")))
+    translations = [clean_output(t) for t in translations]
     bad = [i for i, t in enumerate(translations) if texts[i].strip() and not is_in_language(t, tgt)]
     if bad:
         ctx.log(f"{len(bad)} line(s) came back in the wrong language; retrying them one by one")
