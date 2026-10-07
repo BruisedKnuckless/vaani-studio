@@ -215,6 +215,43 @@ def audio_info(body: AudioIn):
             "channels": info.channels, "codec": info.codec}
 
 
+class PreviewIn(BaseModel):
+    voice: str
+    language: Literal["en", "hi", "mr"] = "en"
+
+
+@app.get("/voices/studio")
+def studio_voices():
+    from .providers.cloud.sarvam import RECOMMENDED_VOICES, STUDIO_VOICES
+
+    ordered = list(RECOMMENDED_VOICES) + sorted(v for v in STUDIO_VOICES if v not in RECOMMENDED_VOICES)
+    return [{"id": v, "name": v.capitalize(), "recommended": v in RECOMMENDED_VOICES} for v in ordered]
+
+
+@app.post("/voices/preview")
+def preview_voice(body: PreviewIn):
+    """A short sample of a Sarvam studio voice, cached so each voice is only generated once."""
+    from .config import SUPPORT_DIR
+    from .providers.cloud.sarvam import PREVIEW_TEXT, STUDIO_VOICES
+
+    if body.voice not in STUDIO_VOICES:
+        raise HTTPException(404, "Unknown voice")
+    path = SUPPORT_DIR / "previews" / f"{body.voice}_{body.language}.wav"
+    if path.exists():
+        return {"path": str(path), "cached": True}
+    provider = registry.get("sarvam_bulbul")
+    state, note = registry.status_of(provider)
+    if state != "ready":
+        raise HTTPException(409, note or "Sarvam isn't available")
+    try:
+        audio, sr = provider.synthesize(PREVIEW_TEXT[body.language], body.language, "", "", voice=body.voice)
+    except Exception as exc:
+        raise HTTPException(502, str(exc))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    audio_io.save(path, audio, sr, "wav")
+    return {"path": str(path), "cached": False}
+
+
 @app.get("/models")
 def list_models():
     return models.list()

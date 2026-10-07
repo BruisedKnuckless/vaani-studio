@@ -178,7 +178,7 @@ class SarvamVoiceClone(TTS):
     languages = frozenset({"en", "hi", "mr"})
     rank = 10
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None, pace=1.0):
         import base64
         import io
 
@@ -187,15 +187,17 @@ class SarvamVoiceClone(TTS):
         data = {
             "text": text[:1000],
             "language_code": BCP47[language],
-            "speech_sample_rate": "24000",
+            "speech_sample_rate": "48000",  # full-band output; the model renders at this rate
             "output_audio_codec": "wav",
             "enable_text_normalization": "true",
         }
         if ref_text:
             data["ref_text"] = ref_text[:500]
         if max_duration:
-            # Sarvam time-stretches the result to fit the dubbing slot.
+            # Sarvam time-stretches the result to fit the dubbing slot (can't be combined with pace).
             data["max_audio_duration"] = f"{max_duration:.2f}"
+        elif abs(pace - 1.0) > 0.01:
+            data["pace"] = f"{min(max(pace, 0.5), 2.0):.2f}"
         with open(ref_audio_path, "rb") as ref:
             response = request_with_retry(
                 "POST", f"{BASE}/voices/clone", service="Sarvam", headers=_headers(), data=data,
@@ -211,6 +213,19 @@ STUDIO_VOICES = ("shubh", "aditya", "ritu", "priya", "neha", "rahul", "pooja", "
                  "suhani", "mohit", "kavitha", "rehan", "soham", "rupali")
 
 
+STUDIO_PACE = 0.92
+
+# Sarvam marks these two as its top-rated, all-round voices.
+RECOMMENDED_VOICES = ("shubh", "ishita")
+
+# Gender-neutral sample lines for voice previews.
+PREVIEW_TEXT = {
+    "en": "Hello! This is a sample of my voice. Your translated audio will be read in exactly this voice.",
+    "hi": "नमस्ते! यह मेरी आवाज़ का एक नमूना है। आपका अनुवादित ऑडियो इसी आवाज़ में सुनाई देगा।",
+    "mr": "नमस्कार! हा माझ्या आवाजाचा एक नमुना आहे. तुमचा अनुवादित ऑडिओ याच आवाजात ऐकू येईल.",
+}
+
+
 class SarvamStudioVoice(TTS):
     """Bulbul v3 preset voices: very natural, but not the original speaker's voice."""
 
@@ -221,7 +236,7 @@ class SarvamStudioVoice(TTS):
     languages = frozenset({"en", "hi", "mr"})
     rank = 50  # only when chosen: dubbing normally keeps the speaker's own voice
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None, pace=1.0):
         import base64
         import io
 
@@ -232,7 +247,9 @@ class SarvamStudioVoice(TTS):
             "language_code": BCP47[language],
             "model": "bulbul:v3",
             "speaker": voice if voice in STUDIO_VOICES else "shubh",
-            "speech_sample_rate": 24000,
+            # Studio voices default to a brisk ~165 words/min; 0.92× gives a calmer ~150 for narration.
+            "pace": round(min(max(STUDIO_PACE * pace, 0.5), 2.0), 2),
+            "speech_sample_rate": 48000,
             "output_audio_codec": "wav",
         }
         response = request_with_retry("POST", f"{BASE}/text-to-speech", service="Sarvam",

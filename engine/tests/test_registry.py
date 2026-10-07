@@ -17,8 +17,7 @@ def test_cloud_mode_with_keys_uses_cloud_where_it_exists():
     assert steps["asr"] == ("cloud_asr", "ready")
     assert steps["translate"] == ("llm_mt", "ready")
     assert steps["tts"] == ("cloud_tts", "ready")
-    # No cloud separator exists, so that step stays on the Mac and says so.
-    assert steps["separate"] == ("fake_sep", "local_only")
+    assert "separate" not in steps  # voice-only dubs skip separation
     assert plan.uploads and not plan.blocking
 
 
@@ -140,3 +139,10 @@ def test_voice_match_is_dropped_for_cloud_voices():
     local = registry.resolve_plan("dub", "mr", "en", "local", options={"voice_match": True})
     assert "voice_match" not in [s.stage for s in cloud.steps]
     assert "voice_match" in [s.stage for s in local.steps]
+
+
+def test_dub_separates_only_when_the_background_is_wanted():
+    registry = make_registry({})
+    assert "separate" not in [s.stage for s in registry.resolve_plan("dub", "mr", "en", "local").steps]
+    with_bed = registry.resolve_plan("dub", "mr", "en", "cloud", options={"keep_background": True})
+    assert with_bed.steps[0].stage == "separate" and with_bed.steps[0].status == "local_only"

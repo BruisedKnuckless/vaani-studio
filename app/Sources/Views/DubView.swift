@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 struct DubView: View {
@@ -5,12 +6,14 @@ struct DubView: View {
     @AppStorage("mode.dub") private var savedMode: ProcessingMode = .auto
     @AppStorage("dub.source") private var source = Language.auto.rawValue
     @AppStorage("dub.target") private var target = Language.en.rawValue
-    @AppStorage("dub.background") private var keepBackground = true
+    @AppStorage("dub.withBackground") private var withBackground = false
     @AppStorage("dub.voiceMatch") private var voiceMatch = false
     @AppStorage("dub.format") private var format = "wav"
     @AppStorage("dub.consent") private var consent = false
-    @AppStorage("dub.voice") private var voiceChoice = "auto"
+    @AppStorage("dub.voiceKind") private var voiceKind = "clone"        // clone | studio
+    @AppStorage("dub.cloneEngine") private var cloneEngine = "auto"     // auto | sarvam_clone | local
     @AppStorage("dub.voiceName") private var voiceName = "shubh"
+    @AppStorage("dub.pace") private var pace = 1.0
 
     @State private var file: URL?
     @State private var request = PlanRequest(jobType: .dub)
@@ -19,26 +22,25 @@ struct DubView: View {
     @State private var starting = false
 
     private static let targets: [Language] = [.en, .hi, .mr]
-    /// Bulbul v3 preset voices (Sarvam).
-    private static let studioVoices = ["shubh", "aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan",
-        "simran", "kavya", "amit", "dev", "ishita", "shreya", "ratan", "varun", "manan", "sumit", "roopa", "kabir",
-        "aayan", "ashutosh", "advait", "anand", "tanya", "tarun", "sunny", "mani", "gokul", "vijay", "shruti",
-        "suhani", "mohit", "kavitha", "rehan", "soham", "rupali"]
 
-    private var clonesVoice: Bool { voiceChoice != "sarvam_studio" }
+    private var clonesVoice: Bool { voiceKind == "clone" }
+    private var voiceOption: String { clonesVoice ? cloneEngine : "sarvam_studio" }
     /// Voice matching only applies to voices made on this Mac.
     private var voiceMadeLocally: Bool {
-        voiceChoice == "local" || (voiceChoice == "auto" && (!app.hasKey(.sarvam) || request.mode == .local))
+        clonesVoice && (cloneEngine == "local" || (cloneEngine == "auto" && (!app.hasKey(.sarvam) || request.mode == .local)))
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 ScreenHeader(title: "Dub",
-                             subtitle: "Translate speech and say it in the original speaker's voice.")
+                             subtitle: "Translate speech and voice it naturally, in the speaker's own voice or a studio voice.")
                 FileDropZone(file: $file)
                 if file != nil {
-                    options
+                    languages
+                    VoiceChooser(kind: $voiceKind, cloneEngine: $cloneEngine, voiceName: $voiceName,
+                                 language: target)
+                    output
                     ProcessingModePicker(request: $request, plan: $plan)
                     if clonesVoice { consentRow }
                     StartBar(title: "Dub Audio", symbol: "person.wave.2", plan: (consent || !clonesVoice) ? plan : nil,
@@ -75,14 +77,17 @@ struct DubView: View {
                let plan, !plan.blocking { start() }
         }
         #endif
-        .onChange(of: request.mode) { _, mode in savedMode = mode }
+        .onChange(of: request.mode) { _, mode in
+            savedMode = mode
+            sync()
+        }
         .onChange(of: file) { _, _ in jobID = nil }
-        .onChange(of: [source, target, format, voiceChoice, voiceName]) { _, _ in sync() }
-        .onChange(of: [keepBackground, voiceMatch]) { _, _ in sync() }
-        .onChange(of: request.mode) { _, _ in sync() }
+        .onChange(of: [source, target, format, voiceKind, cloneEngine, voiceName]) { _, _ in sync() }
+        .onChange(of: [withBackground, voiceMatch]) { _, _ in sync() }
+        .onChange(of: pace) { _, _ in sync() }
     }
 
-    private var options: some View {
+    private var languages: some View {
         GroupBox {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 12) {
                 GridRow {
@@ -99,41 +104,38 @@ struct DubView: View {
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
+            }
+            .padding(6)
+        } label: {
+            Text("Languages").font(.headline)
+        }
+    }
+
+    private var output: some View {
+        GroupBox {
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 12) {
                 GridRow {
-                    Text("Voice")
-                    VStack(alignment: .leading, spacing: 6) {
-                        Picker("Voice", selection: $voiceChoice) {
-                            Text("Automatic: Sarvam if you've added a key, otherwise this Mac").tag("auto")
-                            Text("Speaker's own voice · Sarvam (most natural, cloud)").tag("sarvam_clone")
-                            Text("Speaker's own voice · on this Mac (free, private)").tag("local")
-                            Text("Sarvam studio voice (natural, but not the speaker's)").tag("sarvam_studio")
-                        }
-                        .labelsHidden().fixedSize()
-                        if voiceChoice == "sarvam_studio" {
-                            Picker("Studio voice", selection: $voiceName) {
-                                ForEach(Self.studioVoices, id: \.self) { Text($0.capitalized).tag($0) }
-                            }
-                            .fixedSize()
-                        }
-                        if voiceChoice != "local", !app.hasKey(.sarvam) {
-                            HStack(spacing: 6) {
-                                Text(voiceChoice == "auto" ? "No Sarvam key yet, so the voice is made on this Mac."
-                                                           : "Needs a Sarvam API key.")
-                                Button("Add key…") { app.screen = .settings }.controlSize(.small)
-                            }
-                            .font(.caption).foregroundStyle(.secondary)
-                        }
+                    Text("Output")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("The dubbed voice on its own, at natural speed, cleaned up and levelled.")
+                            .foregroundStyle(.secondary)
+                        Toggle("Also make a version with the original background music", isOn: $withBackground)
                     }
-                }
-                GridRow {
-                    Text("Background")
-                    Toggle("Keep the original music and ambience", isOn: $keepBackground)
                 }
                 if voiceMadeLocally {
                     GridRow {
                         Text("Voice likeness")
                         Toggle("Extra voice-matching pass (slower, closer to the speaker)", isOn: $voiceMatch)
                     }
+                }
+                GridRow {
+                    Text("Speaking pace")
+                    Picker("Speaking pace", selection: $pace) {
+                        Text("Relaxed").tag(0.9)
+                        Text("Natural").tag(1.0)
+                        Text("Brisk").tag(1.1)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
                 GridRow {
                     Text("Save as")
@@ -147,7 +149,7 @@ struct DubView: View {
             }
             .padding(6)
         } label: {
-            Text("Options").font(.headline)
+            Text("Output").font(.headline)
         }
     }
 
@@ -164,9 +166,16 @@ struct DubView: View {
     private func sync() {
         request.srcLang = source
         request.tgtLang = target
-        request.options = ["keep_background": .bool(keepBackground), "voice_match": .bool(voiceMatch && voiceMadeLocally),
-                           "format": .string(format), "voice": .string(voiceChoice),
-                           "voice_name": .string(voiceName)]
+        request.options = [
+            "voice": .string(voiceOption),
+            "voice_name": .string(voiceName),
+            "timing": .string("natural"),
+            "pace": .number(pace),
+            "clarity": .bool(true),
+            "keep_background": .bool(withBackground),
+            "voice_match": .bool(voiceMatch && voiceMadeLocally),
+            "format": .string(format),
+        ]
     }
 
     private func start() {
@@ -176,6 +185,140 @@ struct DubView: View {
             if let job = await app.submit(request, file: file) { jobID = job.id }
             starting = false
         }
+    }
+}
+
+/// Two ways to voice the dub: the speaker's own (cloned) voice, or a Sarvam studio voice.
+private struct VoiceChooser: View {
+    @Environment(AppModel.self) private var app
+    @Binding var kind: String
+    @Binding var cloneEngine: String
+    @Binding var voiceName: String
+    let language: String
+    @State private var voices: [StudioVoice] = []
+    @State private var preview = PreviewPlayer()
+
+    var body: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    card("clone", title: "Speaker's own voice", symbol: "person.wave.2",
+                         detail: "The original speaker, speaking the translation.")
+                    card("studio", title: "Studio voice", symbol: "music.mic",
+                         detail: "A natural, professional Sarvam voice that you choose.")
+                }
+                if kind == "clone" {
+                    HStack {
+                        Text("Made by")
+                        Picker("Made by", selection: $cloneEngine) {
+                            Text("Automatic").tag("auto")
+                            Text("Sarvam · most natural").tag("sarvam_clone")
+                            Text("This Mac · free, private").tag("local")
+                        }
+                        .pickerStyle(.segmented).labelsHidden().fixedSize()
+                    }
+                    if cloneEngine != "local", !app.hasKey(.sarvam) { keyHint }
+                } else {
+                    HStack(spacing: 10) {
+                        Text("Voice")
+                        Picker("Voice", selection: $voiceName) {
+                            ForEach(voices) { voice in
+                                Text(voice.recommended ? "\(voice.name) · top-rated" : voice.name).tag(voice.id)
+                            }
+                        }
+                        .labelsHidden().fixedSize()
+                        Button {
+                            Task { await preview.toggle(voice: voiceName, language: language, app: app) }
+                        } label: {
+                            if preview.loading {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label(preview.playing ? "Stop" : "Preview",
+                                      systemImage: preview.playing ? "stop.fill" : "play.fill")
+                            }
+                        }
+                        .disabled(!app.hasKey(.sarvam) || preview.loading)
+                    }
+                    if let error = preview.error {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
+                    if !app.hasKey(.sarvam) { keyHint }
+                }
+            }
+            .padding(6)
+        } label: {
+            Text("Voice").font(.headline)
+        }
+        .task {
+            if voices.isEmpty, let list = try? await app.client?.studioVoices() { voices = list }
+        }
+        .onChange(of: voiceName) { _, _ in preview.stop() }
+        .onChange(of: language) { _, _ in preview.stop() }
+    }
+
+    private var keyHint: some View {
+        HStack(spacing: 6) {
+            Text(kind == "clone" ? "No Sarvam key yet, so the voice is made on this Mac."
+                                 : "Studio voices need a Sarvam API key.")
+            Button("Add key…") { app.screen = .settings }.controlSize(.small)
+        }
+        .font(.caption).foregroundStyle(.secondary)
+    }
+
+    private func card(_ value: String, title: String, symbol: String, detail: String) -> some View {
+        let selected = kind == value
+        return VStack(alignment: .leading, spacing: 4) {
+            Label(title, systemImage: symbol).font(.callout.weight(.semibold))
+            Text(detail).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(selected ? Color.accentColor.opacity(0.14) : .clear))
+        .overlay(RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(selected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: selected ? 2 : 1))
+        .contentShape(Rectangle())
+        .onTapGesture { kind = value }
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// Plays a cached sample of a studio voice.
+@MainActor
+@Observable
+final class PreviewPlayer {
+    private(set) var loading = false
+    private(set) var playing = false
+    private(set) var error: String?
+    private var player: AVAudioPlayer?
+    private var timer: Timer?
+
+    func toggle(voice: String, language: String, app: AppModel) async {
+        if playing { stop(); return }
+        guard let client = app.client else { return }
+        loading = true
+        error = nil
+        defer { loading = false }
+        do {
+            let result = try await client.previewVoice(voice, language: language)
+            let player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: result.path))
+            self.player = player
+            player.play()
+            playing = true
+            timer?.invalidate()
+            timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    if self?.player?.isPlaying != true { self?.stop() }
+                }
+            }
+        } catch {
+            self.error = "Couldn't play the preview: \(error.localizedDescription)"
+        }
+    }
+
+    func stop() {
+        player?.stop()
+        playing = false
+        timer?.invalidate()
     }
 }
 
@@ -234,15 +377,18 @@ private struct DubResult: View {
 
     private func playerItems(_ dubbed: URL) -> [(label: String, url: URL)] {
         var items: [(label: String, url: URL)] = [("Original", URL(fileURLWithPath: job.inputPath)), ("Dubbed", dubbed)]
-        if let voice = job.outputPath("dubbed_voice") { items.append(("Voice only", voice)) }
+        if let mix = job.outputPath("dubbed_with_background") { items.append(("With background", mix)) }
         return items
     }
 
     @ViewBuilder private var summary: some View {
         let m = job.metrics
         HStack(spacing: 20) {
-            if let lines = m["lines"] { stat("Lines voiced", "\(Int(lines))") }
-            if let fast = m["sped_up"] { stat("Sped up to fit", "\(Int(fast))") }
+            if let lines = m["lines"] { stat("Passages voiced", "\(Int(lines))") }
+            if let length = m["duration_s"] {
+                stat("Length", "\(formatDuration(length))" + (m["original_duration_s"].map { " (original \(formatDuration($0)))" } ?? ""))
+            }
+            if let fast = m["sped_up"], fast > 0 { stat("Sped up to fit", "\(Int(fast))") }
             if let cut = m["cut_short"], cut > 0 {
                 stat("Too long (edit these)", "\(Int(cut))").foregroundStyle(.orange)
             }

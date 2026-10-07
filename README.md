@@ -4,7 +4,7 @@ A Mac app for speech in **Marathi, Hindi, English and Hinglish**:
 
 - **Enhance**: remove background noise, isolate the voice from music, even out the voice and set the loudness.
 - **Transcribe & Translate**: get editable transcripts and subtitles (SRT, VTT, TXT, JSON), then translate them.
-- **Dub**: Marathi ↔ English and Hindi ↔ English, spoken in the original speaker's voice.
+- **Dub**: Marathi ↔ English and Hindi ↔ English. The output is the dubbed voice on its own, in either the original speaker's cloned voice or a Sarvam studio voice that you can preview. Whole sentences are voiced at natural pace, then cleaned up and levelled to −16 LUFS.
 
 Every step can run **on this Mac** or through **cloud APIs** (Sarvam AI, Anthropic Claude, OpenAI). You choose each time you add a file: **On this Mac**, **Cloud API** or **Auto**. Before you start, the app shows exactly which service will handle each step.
 

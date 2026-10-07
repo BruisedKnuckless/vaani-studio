@@ -52,7 +52,10 @@ final class AppModel {
     init() {
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification,
                                                object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.engine.stop() }
+            MainActor.assumeIsolated {
+                self?.engine.stop()
+                try? FileManager.default.removeItem(at: Self.engineInfoURL)
+            }
         }
         engine.onExit = { [weak self] status in
             guard let self, self.engineState == .ready else { return }
@@ -93,6 +96,7 @@ final class AppModel {
             let port = try await engine.launch(token: token, environment: env)
             let client = EngineClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!, token: token)
             self.client = client
+            Self.publishEngineAddress(port: port, token: token)
             health = try await waitForHealth(client)
             engineState = .ready
             await refreshJobs()
@@ -100,6 +104,18 @@ final class AppModel {
         } catch {
             engineState = .failed(error.localizedDescription)
         }
+    }
+
+    /// Where the running engine can be reached, for `vaani … --via-app` (readable only by this user).
+    static let engineInfoURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appending(path: "VaaniStudio/engine.json")
+
+    private static func publishEngineAddress(port: Int, token: String) {
+        let data = try? JSONSerialization.data(withJSONObject: ["port": port, "token": token])
+        try? FileManager.default.createDirectory(at: engineInfoURL.deletingLastPathComponent(),
+                                                 withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: engineInfoURL.path, contents: data,
+                                       attributes: [.posixPermissions: 0o600])
     }
 
     private func waitForHealth(_ client: EngineClient) async throws -> Health {

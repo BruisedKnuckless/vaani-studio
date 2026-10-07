@@ -37,6 +37,10 @@ struct EngineClient: Sendable {
         try await send("jobs/\(id)/segments", method: "PUT", body: ["segments": JSONValue.array(segments)])
     }
     func models() async throws -> [ModelInfo] { try await get("models") }
+    func studioVoices() async throws -> [StudioVoice] { try await get("voices/studio") }
+    func previewVoice(_ voice: String, language: String) async throws -> VoicePreview {
+        try await post("voices/preview", ["voice": voice, "language": language])
+    }
     func download(model id: String) async throws -> ModelInfo { try await post("models/\(id)/download", [String: String]()) }
     func delete(model id: String) async throws -> ModelInfo { try await send("models/\(id)", method: "DELETE") }
 

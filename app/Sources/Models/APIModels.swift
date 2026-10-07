@@ -153,6 +153,17 @@ struct ModelInfo: Codable, Identifiable, Hashable, Sendable {
     var termsUrl: String?
 }
 
+struct StudioVoice: Codable, Identifiable, Hashable, Sendable {
+    var id: String
+    var name: String
+    var recommended: Bool
+}
+
+struct VoicePreview: Codable, Sendable {
+    var path: String
+    var cached: Bool
+}
+
 struct Peaks: Codable, Sendable {
     var duration: Double
     var peaks: [Double]

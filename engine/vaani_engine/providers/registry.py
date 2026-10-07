@@ -102,8 +102,10 @@ def stages_for(job_type: str, src: str, tgt: str | None, options: dict) -> list[
             stages.append(Stage.TRANSLATE)
         return stages
     if job_type == "dub":
-        stages = [Stage.SEPARATE, Stage.TTS] if options.get("script") else \
-            [Stage.SEPARATE, Stage.ASR, Stage.TRANSLATE, Stage.TTS]
+        # Separation only when the music is wanted back or has to be removed before cloning:
+        # on clean speech it only adds artefacts.
+        stages = [Stage.SEPARATE] if options.get("keep_background") or options.get("isolate_vocals") else []
+        stages += [Stage.TTS] if options.get("script") else [Stage.ASR, Stage.TRANSLATE, Stage.TTS]
         if options.get("voice_match"):
             stages.append(Stage.VOICE_MATCH)
         return stages
