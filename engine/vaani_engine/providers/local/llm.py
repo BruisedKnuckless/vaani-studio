@@ -72,7 +72,7 @@ class LocalLLMTranslator(Translator):
             return [tp.strip_loops(t) for t in tp.parse(reply, len(batch))]
         except (ValueError, Exception):
             if len(batch) == 1:
-                return [tp.strip_loops(reply.strip().strip('"'))]
+                return [tp.strip_loops(tp.salvage_single(reply))]
             # Small models occasionally merge lines; retry one line at a time.
             return [self._translate_batch(system, [t], tgt, [durations[i]] if durations else None)[0]
                     for i, t in enumerate(batch)]

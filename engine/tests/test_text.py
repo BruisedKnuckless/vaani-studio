@@ -78,3 +78,9 @@ def test_marathi_hindi_heuristic():
     hindi = "अगर जीवन में तनाव नहीं है तो आप परीक्षा में अच्छे अंक ला सकते हैं"
     assert marathi_score(marathi) > 0.02
     assert marathi_score(hindi) < 0
+
+
+def test_salvage_single_line_from_broken_json():
+    assert tp.salvage_single('{"translations": ["In pranayama, breathe slowly') == "In pranayama, breathe slowly"
+    assert tp.salvage_single('{"translations": ["He said \\"hi\\""') == 'He said "hi"'
+    assert tp.salvage_single('"Just text"') == "Just text"

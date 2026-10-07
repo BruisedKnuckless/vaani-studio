@@ -48,7 +48,7 @@ private struct JobRow: View {
                 HStack(spacing: 6) {
                     Text(job.type.capitalized)
                     Text("·")
-                    Text(job.created, style: .relative)
+                    Text(job.created, format: .relative(presentation: .named))
                     if job.plan.uploads { Image(systemName: "cloud").help("Used a cloud API") }
                 }
                 .font(.caption).foregroundStyle(.secondary)

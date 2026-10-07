@@ -31,6 +31,9 @@ def system_prompt(src: str, tgt: str, dubbing: bool) -> str:
     lines = [
         "You translate transcripts of spoken audio from Indian speakers.",
         f"Source: {source}. Target: {target}.",
+        "The transcripts come from automatic speech recognition and can contain misheard words. Work out "
+        "what the speaker most likely meant from the context and translate that meaning. Never just "
+        "transliterate the source into another script.",
         "The lines are consecutive pieces of one recording, so use the surrounding lines for context, "
         "but translate each line on its own: return exactly one translation per input line, in order.",
         "Write the way people actually speak, not formal written language. Keep names, brands and "
@@ -106,3 +109,15 @@ def strip_loops(text: str, max_repeats: int = 3) -> str:
             else:
                 run = 1
     return text
+
+
+def salvage_single(reply: str) -> str:
+    """Best effort for a one-line reply that isn't valid JSON (e.g. cut off mid-array)."""
+    text = reply.strip()
+    match = re.search(r'"translations"\s*:\s*\[\s*"((?:[^"\\]|\\.)*)', text)
+    if match:
+        try:
+            return json.loads(f'"{match.group(1)}"')
+        except json.JSONDecodeError:
+            return match.group(1)
+    return text.strip('"[]{} \n')
