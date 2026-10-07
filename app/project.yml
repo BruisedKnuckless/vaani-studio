@@ -1,0 +1,48 @@
+name: Vaani
+options:
+  bundleIdPrefix: com.viraj
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+targets:
+  Vaani:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Vaani Studio
+        CFBundleName: Vaani
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.music
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSHumanReadableCopyright: Personal use
+        # Where the Python engine lives during development. Packaged builds use
+        # ~/Library/Application Support/VaaniStudio/engine instead.
+        VaaniEngineDir: $(VAANI_ENGINE_DIR)
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.viraj.vaani
+        PRODUCT_NAME: Vaani
+        VAANI_ENGINE_DIR: $(SRCROOT)/../engine
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        # The app launches the local Python engine and reads files the user picks,
+        # so it runs outside the App Sandbox.
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_USER_SELECTED_FILES: readwrite
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_STRICT_CONCURRENCY: complete
