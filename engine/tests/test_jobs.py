@@ -59,3 +59,28 @@ def test_jobs_persist(tmp_path, wav):
     assert job.status == "done" and job.outputs == {"text": "namaste"}
     reloaded = JobStore(tmp_path / "jobs.db").load_all()
     assert reloaded[0].id == job.id and reloaded[0].status == "done"
+
+
+def test_untranslatable_lines_are_retried_and_reported(tmp_path, wav):
+    from vaani_engine.jobs import Job, JobContext
+    from vaani_engine.pipelines.transcribe import translate
+    from vaani_engine.providers.base import Segment, Transcript
+
+    mgr = manager(tmp_path, keys={"anthropic": "k"})
+    calls = []
+
+    def transliterating(texts, src, tgt, durations=None, progress=None):
+        """Like the small local model on a garbled transcript: spells it out instead of translating."""
+        calls.append(len(texts))
+        return ["Tar tumhie aisha growth karnu shapdana main je thod karnaa" if "bad" in t
+                else "You can do it well." for t in texts]
+
+    mgr.registry.get("llm_mt").translate = transliterating
+    plan = mgr.registry.resolve_plan("transcribe", "mr", "en", "local", overrides={"translate": "llm_mt"})
+    job = Job(id="t1", type="transcribe", input_path=str(wav), params={}, plan=plan.to_dict(), out_dir=str(tmp_path))
+    ctx = JobContext(mgr, job, plan)
+    transcript = Transcript("mr", [Segment(0, 1, "good line"), Segment(1, 2, "bad line")])
+
+    assert translate(ctx, transcript, "en", 0, 1) == [1]
+    assert calls == [2, 1]                       # one batch, then one retry for the bad line
+    assert transcript.segments[0].translation == "You can do it well."

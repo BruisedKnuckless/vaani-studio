@@ -9,10 +9,10 @@ def build_registry(settings: Settings) -> Registry:
     from .cloud.anthropic_provider import ClaudeTranslator
     from .cloud.openai_provider import OpenAIASR, OpenAITranslator
     from .cloud.sarvam import SarvamASR, SarvamTranslator, SarvamVoiceClone
-    from .local.asr import IndicConformer, WhisperMLX
+    from .local.asr import IndicConformer, WhisperMarathi, WhisperMLX
     from .local.enhance import BasicDenoiser, DeepFilterNetDenoiser, DemucsSeparator, MossFormerDenoiser
     from .local.indictrans import IndicTrans2
-    from .local.llm import LocalLLMTranslator
+    from .local.llm import LocalLLMLargeTranslator, LocalLLMTranslator
     from .local.voice import ChatterboxTTS, ChatterboxVoiceMatch, MMSMarathiClone
 
     registry = Registry(settings)
@@ -20,9 +20,9 @@ def build_registry(settings: Settings) -> Registry:
         # audio clean-up (on this Mac)
         DemucsSeparator(), DeepFilterNetDenoiser(), MossFormerDenoiser(), BasicDenoiser(),
         # speech recognition
-        WhisperMLX(), IndicConformer(), SarvamASR(), OpenAIASR(),
+        WhisperMLX(), WhisperMarathi(), IndicConformer(), SarvamASR(), OpenAIASR(),
         # translation
-        IndicTrans2(), LocalLLMTranslator(), ClaudeTranslator(), OpenAITranslator(), SarvamTranslator(),
+        IndicTrans2(), LocalLLMLargeTranslator(), LocalLLMTranslator(), ClaudeTranslator(), OpenAITranslator(), SarvamTranslator(),
         # voice-cloned speech and voice matching
         ChatterboxTTS(), MMSMarathiClone(), SarvamVoiceClone(), ChatterboxVoiceMatch(),
     ):

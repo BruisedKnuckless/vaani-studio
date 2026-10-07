@@ -50,4 +50,9 @@ class ChunkedASR(ASR):
                 segments.append(Segment(round(start, 2), round(end, 2), text))
         segments = self.finish(segments, language, progress)
         progress(1.0, "Transcribed")
-        return Transcript(language, segments)
+        note = self.confidence_note(language)
+        return Transcript(language, segments, [note] if note else [])
+
+    def confidence_note(self, language: str) -> str:
+        """Override to warn when the recogniser itself was unsure."""
+        return ""

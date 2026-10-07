@@ -165,10 +165,14 @@ class Registry:
         alternatives = [Choice(p.id, p.name, p.kind, self.status_of(p, src, tgt)[0])
                         for p in self.for_stage(stage, src, tgt)]
         local = self._best(stage, src, tgt, "local")
+        note = note if note is not None else why
+        advice = provider.advice(src, tgt)
+        if advice:
+            note = f"{note} · {advice}" if note else advice
         return StagePlan(
             stage=stage.value, label=STAGE_LABELS[stage], provider_id=provider.id,
             provider_name=provider.name, kind=provider.kind, status=status or state,
-            note=note if note is not None else why, alternatives=alternatives,
+            note=note, alternatives=alternatives,
             local_alternative=local.id if local and provider.kind == "cloud" else None,
         )
 

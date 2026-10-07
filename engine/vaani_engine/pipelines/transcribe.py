@@ -26,11 +26,16 @@ def run(ctx) -> dict:
 
     src = transcript.language
     tgt = ctx.tgt_lang
+    for note in transcript.notes:
+        ctx.warn(note)
     if ctx.has_stage(Stage.TRANSLATE) and tgt:
         if tgt == src:
             ctx.log(f"The audio is already in {tgt}; skipping translation")
         else:
-            translate(ctx, transcript, tgt, 0.75, 0.97)
+            bad = translate(ctx, transcript, tgt, 0.75, 0.97)
+            if bad:
+                ctx.warn(f"{len(bad)} of {len(transcript.segments)} lines may not be translated properly "
+                         f"(lines {', '.join(str(i + 1) for i in bad)}). Check the transcript for misheard words.")
 
     ctx.progress(0.98, "Saving subtitles")
     return write_outputs(ctx.out_dir, transcript, tgt if any(s.translation for s in transcript.segments) else None)
@@ -57,16 +62,30 @@ def recognise(ctx, start: float, end: float) -> Transcript:
 
 
 def translate(ctx, transcript: Transcript, tgt: str, start: float, end: float,
-              durations: list[float] | None = None) -> None:
+              durations: list[float] | None = None) -> list[int]:
+    """Translate every segment. Returns the indexes of lines that still aren't in the
+    target language after one retry (usually because the transcript itself was wrong)."""
+    from ..providers.translation_prompt import is_in_language
+
     texts = [s.text for s in transcript.segments]
     if not texts:
-        return
+        return []
     src = transcript.language
     translations = ctx.run_stage(
         Stage.TRANSLATE,
         lambda p: p.translate(texts, src, tgt, durations, ctx.span(start, end, "Translating")))
+    bad = [i for i, t in enumerate(translations) if texts[i].strip() and not is_in_language(t, tgt)]
+    if bad:
+        ctx.log(f"{len(bad)} line(s) came back in the wrong language; retrying them one by one")
+        translator = ctx.registry.get(ctx.job.providers_used[Stage.TRANSLATE.value])
+        for i in bad:
+            retry = translator.translate([texts[i]], src, tgt, [durations[i]] if durations else None)[0]
+            if is_in_language(retry, tgt):
+                translations[i] = retry
+        bad = [i for i in bad if not is_in_language(translations[i], tgt)]
     for seg, text in zip(transcript.segments, translations):
         seg.translation = text
+    return bad
 
 
 def write_outputs(out_dir: Path, transcript: Transcript, tgt: str | None) -> dict:

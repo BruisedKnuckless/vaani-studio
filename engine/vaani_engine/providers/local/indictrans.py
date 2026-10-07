@@ -19,7 +19,7 @@ class IndicTrans2(Translator):
     languages = frozenset({"en", "hi", "mr"})
     model_ids = ("indictrans2-en-indic", "indictrans2-indic-en")
     python_modules = ("IndicTransToolkit", "transformers")
-    rank = 10
+    rank = 15  # Gemma (rank 10) is preferred: it follows dubbing length limits and is tested
     heavy = True
 
     def __init__(self):

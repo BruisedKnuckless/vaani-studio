@@ -84,3 +84,19 @@ def test_salvage_single_line_from_broken_json():
     assert tp.salvage_single('{"translations": ["In pranayama, breathe slowly') == "In pranayama, breathe slowly"
     assert tp.salvage_single('{"translations": ["He said \\"hi\\""') == 'He said "hi"'
     assert tp.salvage_single('"Just text"') == "Just text"
+
+
+def test_language_check_catches_transliteration_from_the_failed_dub():
+    # Real outputs from a Marathi→English dub where the model spelled Marathi in English letters.
+    bad = ["Pranaayam ma vala nahi mantaal ti slo breathing, preeding, preeding, preeding tyaa, am ganen ka uttava",
+           "Tar tumhie aisha growth karnu shapdana, main je thod karnaa izar bulaana periseta tension nase, tar tumhie",
+           "Nehemi upyup kasto. Aand dusra manje jiva tumhie rykript vidhing karta teva tumhasa langch expansion"]
+    good = ["Just try this science-based pranayama, simple and effective, you know, it's really powerful, thanks.",
+            "If there's no stress in life, you can score good marks in exams.",
+            "Breathe slowly, life improves."]
+    assert not any(tp.is_in_language(t, "en") for t in bad)
+    assert all(tp.is_in_language(t, "en") for t in good)
+    assert not tp.is_in_language("प्राणायामामध्ये आपण नेहमी म्हणतो", "en")
+    assert tp.is_in_language("प्राणायामामध्ये आपण नेहमी म्हणतो", "mr")
+    assert not tp.is_in_language("pranayama mein hum kahte hain", "hi")
+    assert tp.is_in_language("pranayama mein hum kahte hain", "hinglish")

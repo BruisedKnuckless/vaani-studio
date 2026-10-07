@@ -157,10 +157,23 @@ def run(ctx) -> dict:
         ctx.log(f"Source language: {transcript.language}; {len(segments)} lines")
 
     slots = time_slots(segments, total)
+    for note in transcript.notes:
+        ctx.warn(note)
+    untranslated: set[int] = set()
     if not opts.get("script"):
         if transcript.language == tgt:
             raise ValueError("The audio is already in the dubbing language")
-        translate(ctx, transcript, tgt, 0.45, 0.55, durations=slots)
+        untranslated = set(translate(ctx, transcript, tgt, 0.45, 0.55, durations=slots))
+        if len(untranslated) > 0.4 * len(segments):
+            raise ValueError(
+                f"Only {len(segments) - len(untranslated)} of {len(segments)} lines could be translated into "
+                f"{'English' if tgt == 'en' else tgt}, which almost always means the speech was misheard. "
+                + ("Whisper struggles with Marathi: dub with Cloud (Sarvam), or add a free Hugging Face token so "
+                   "Vaani can use IndicConformer. " if transcript.language == "mr" else "")
+                + "You can also fix the transcript on the Transcribe screen and dub from there.")
+        if untranslated:
+            ctx.warn(f"{len(untranslated)} line(s) couldn't be translated and keep the original voice "
+                     f"(lines {', '.join(str(i + 1) for i in sorted(untranslated))})")
     translator = ctx.registry.get(ctx.job.providers_used["translate"]) if "translate" in ctx.job.providers_used else None
     can_shorten = bool(translator and translator.follows_length)
 
@@ -179,6 +192,10 @@ def run(ctx) -> dict:
     # Speak each line in the cloned voice.
     voice = np.zeros((1, original.shape[-1]), dtype=np.float32)
     report = []
+    for i in untranslated:
+        seg = segments[i]
+        place(voice, clean_mono[:, int(seg.start * SR):int(seg.end * SR)], SR, seg.start, slots[i])
+        seg.translation = None
     lines = [(i, s) for i, s in enumerate(segments) if clean_for_speech(s.translation or "")]
     tts = ctx.provider_for(Stage.TTS)
     for n, (i, seg) in enumerate(lines):

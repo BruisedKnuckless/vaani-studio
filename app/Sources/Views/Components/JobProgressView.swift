@@ -32,6 +32,12 @@ struct JobProgressView: View {
             default:
                 Label("Finished in \(formatDuration(job.updatedAt - job.createdAt))", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
+                ForEach(job.outputs["warnings"]?.arrayValue?.compactMap(\.stringValue) ?? [], id: \.self) { warning in
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if !job.providersUsed.isEmpty {
                 ProvidersUsedView(job: job)

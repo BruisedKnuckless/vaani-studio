@@ -71,6 +71,7 @@ class Segment:
 class Transcript:
     language: str
     segments: list[Segment] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
     @property
     def text(self) -> str:
@@ -127,6 +128,10 @@ class Provider(ABC):
     def models_for(self, src: str | None = None, tgt: str | None = None) -> tuple[str, ...]:
         """Model catalog ids needed for this language pair (defaults to all of model_ids)."""
         return self.model_ids
+
+    def advice(self, src: str | None = None, tgt: str | None = None) -> str:
+        """A heads-up shown in the plan (e.g. "weak at Marathi"), or ""."""
+        return ""
 
     def readiness(self, src: str | None = None, tgt: str | None = None) -> tuple[str, str]:
         """("ready" | "needs_download" | "unavailable", human note)."""

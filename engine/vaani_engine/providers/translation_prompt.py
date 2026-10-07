@@ -46,8 +46,9 @@ def system_prompt(src: str, tgt: str, dubbing: bool) -> str:
     if dubbing:
         lines.append(
             "These lines will be spoken by a dubbing voice in the same time slot as the original. Each line "
-            "has a 'max_syllables' budget: stay within it, shortening or rephrasing while keeping the meaning. "
-            "Natural, speakable sentences matter more than literal accuracy.")
+            "has a 'max_syllables' budget. It is an upper limit, not a target: shorter is fine, so never pad a "
+            "line or repeat words or phrases to fill it. Keep the meaning, drop filler words, and write natural, "
+            "speakable sentences.")
     lines.append('Reply with JSON only: {"translations": ["...", ...]}.')
     return "\n".join(lines)
 
@@ -121,3 +122,36 @@ def salvage_single(reply: str) -> str:
         except json.JSONDecodeError:
             return match.group(1)
     return text.strip('"[]{} \n')
+
+
+ENGLISH_COMMON = set("""a an the is are was were be been am i you he she it we they me my your our their his her its
+this that these those to of in on at for with from by as and or but if so not no yes do does did can could will would
+should must have has had there here what when where why how who which all just very more most some any one two get
+go going make take come see know think say said want need like good well also only then than now out up down about
+into over after before because really breathe breathing life day time people stress""".split())
+
+
+def script_ratio(text: str, lo: int, hi: int) -> float:
+    letters = [c for c in text if c.isalpha()]
+    return sum(lo <= ord(c) <= hi for c in letters) / len(letters) if letters else 0.0
+
+
+def is_in_language(text: str, lang: str) -> bool:
+    """Cheap check that a translation is really in the target language, catching the
+    failure where a model just spells the source out in another script."""
+    text = text.strip()
+    if not text:
+        return True
+    devanagari = script_ratio(text, 0x0900, 0x097F)
+    if lang in ("hi", "mr"):
+        return devanagari >= 0.5
+    if lang in ("en", "hinglish"):
+        if devanagari > 0.2:
+            return False
+        if lang == "hinglish":
+            return True
+        words = re.findall(r"[a-zA-Z']+", text.lower())
+        if len(words) < 4:
+            return True
+        return sum(w in ENGLISH_COMMON for w in words) / len(words) >= 0.15
+    return True

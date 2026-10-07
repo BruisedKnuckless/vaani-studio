@@ -26,6 +26,8 @@ class ModelSpec:
     runtime: str = "core"
     allow_patterns: tuple[str, ...] | None = None
     commercial_ok: bool = True
+    # Post-download step, e.g. "whisper_hf" converts a transformers Whisper checkpoint to MLX.
+    convert: str | None = None
 
 
 CATALOG: dict[str, ModelSpec] = {m.id: m for m in [
@@ -35,6 +37,9 @@ CATALOG: dict[str, ModelSpec] = {m.id: m for m in [
     ModelSpec("htdemucs", "Demucs (htdemucs)", "Separate voice from music/background", None, 85, "MIT"),
     ModelSpec("whisper-large-v3-turbo", "Whisper large-v3 turbo (MLX)", "Transcribe English, Hindi, auto-detect",
               "mlx-community/whisper-large-v3-turbo", 1614, "MIT"),
+    ModelSpec("whisper-marathi", "Whisper large-v2 Marathi (MLX)", "Transcribe Marathi accurately on this Mac",
+              "DrishtiSharma/whisper-large-v2-marathi", 6174, "Apache-2.0",
+              allow_patterns=("*.json", "*.txt", "pytorch_model.bin"), convert="whisper_hf"),
     ModelSpec("indic-conformer", "IndicConformer 600M", "Transcribe Marathi and Hindi",
               "ai4bharat/indic-conformer-600m-multilingual", 2557, "MIT", gated=True),
     ModelSpec("indictrans2-en-indic", "IndicTrans2 En→Indic (200M)", "Translate English → Hindi/Marathi",
@@ -43,7 +48,9 @@ CATALOG: dict[str, ModelSpec] = {m.id: m for m in [
     ModelSpec("indictrans2-indic-en", "IndicTrans2 Indic→En (200M)", "Translate Hindi/Marathi → English",
               "ai4bharat/indictrans2-indic-en-dist-200M", 925, "MIT", gated=True,
               allow_patterns=("*.json", "*.py", "model.safetensors", "*.SRC", "*.TGT", "*.model")),
-    ModelSpec("local-llm", "Qwen3 4B Instruct (MLX 4-bit)", "On-device Hinglish and dubbing-aware translation",
+    ModelSpec("local-llm-large", "Gemma 3 12B (MLX 4-bit)", "On-device translation: English, Hindi, Marathi",
+              "mlx-community/gemma-3-12b-it-4bit", 8068, "Gemma terms of use"),
+    ModelSpec("local-llm", "Qwen3 4B Instruct (MLX 4-bit)", "Lightweight on-device translation and Hinglish",
               "mlx-community/Qwen3-4B-Instruct-2507-4bit", 2279, "Apache-2.0"),
     ModelSpec("chatterbox-mlx", "Chatterbox multilingual (MLX)", "Voice-cloned speech in English and Hindi",
               "mlx-community/chatterbox-multilingual-v3", 2711, "MIT", runtime="mlxvoice"),
@@ -125,6 +132,10 @@ class ModelsManager:
                 allow_patterns=list(spec.allow_patterns) if spec.allow_patterns else None,
                 token=settings.key("huggingface"),
             )
+            if spec.convert == "whisper_hf":
+                from .convert_whisper import convert
+
+                convert(self.path(model_id), remove_source=True)  # ~6 GB fp32 → ~3 GB MLX fp16
             (self.path(model_id) / ".complete").write_text(spec.repo)
             record["state"] = "done"
         except (GatedRepoError, RepositoryNotFoundError) as exc:

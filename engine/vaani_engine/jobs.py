@@ -98,6 +98,7 @@ class JobContext:
         self.input_path = Path(job.input_path)
         self._cancel = threading.Event()
         self._announced: set[Stage] = set()
+        self.warnings: list[str] = []
 
     # progress -----------------------------------------------------------
     def progress(self, fraction: float, message: str | None = None) -> None:
@@ -118,6 +119,12 @@ class JobContext:
     def log(self, line: str) -> None:
         self.job.log.append(f"{datetime.now():%H:%M:%S} {line}")
         self._manager._touch(self.job, persist=True)
+
+    def warn(self, message: str) -> None:
+        """Something the user should know about the result (shown with the job)."""
+        if message not in self.warnings:
+            self.warnings.append(message)
+            self.log(f"Warning: {message}")
 
     def check_cancel(self) -> None:
         if self._cancel.is_set():
@@ -251,6 +258,8 @@ class JobManager:
         self._touch(job, persist=True)
         try:
             job.outputs = self.pipelines[job.type](ctx) or {}
+            if ctx.warnings:
+                job.outputs["warnings"] = ctx.warnings
             job.status, job.progress, job.message = "done", 1.0, "Done"
         except Cancelled:
             job.status, job.message = "cancelled", "Cancelled"
