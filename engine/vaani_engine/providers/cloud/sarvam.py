@@ -102,7 +102,7 @@ class SarvamVoiceClone(TTS):
     languages = frozenset({"en", "hi", "mr"})
     rank = 10
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None):
         import base64
         import io
 
@@ -126,4 +126,41 @@ class SarvamVoiceClone(TTS):
                 files={"ref_audio": ("reference.wav", ref.read(), "audio/wav")}, timeout=180.0,
             )
         audio, sr = sf.read(io.BytesIO(base64.b64decode(response.json()["audio"])), dtype="float32", always_2d=True)
+        return audio.T, sr
+
+
+STUDIO_VOICES = ("shubh", "aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan", "simran", "kavya", "amit",
+                 "dev", "ishita", "shreya", "ratan", "varun", "manan", "sumit", "roopa", "kabir", "aayan",
+                 "ashutosh", "advait", "anand", "tanya", "tarun", "sunny", "mani", "gokul", "vijay", "shruti",
+                 "suhani", "mohit", "kavitha", "rehan", "soham", "rupali")
+
+
+class SarvamStudioVoice(TTS):
+    """Bulbul v3 preset voices: very natural, but not the original speaker's voice."""
+
+    id = "sarvam_bulbul"
+    name = "Sarvam studio voice"
+    kind = "cloud"
+    key_name = "sarvam"
+    languages = frozenset({"en", "hi", "mr"})
+    rank = 50  # only when chosen: dubbing normally keeps the speaker's own voice
+
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None):
+        import base64
+        import io
+
+        import soundfile as sf
+
+        body = {
+            "text": text[:2500],
+            "language_code": BCP47[language],
+            "model": "bulbul:v3",
+            "speaker": voice if voice in STUDIO_VOICES else "shubh",
+            "speech_sample_rate": 24000,
+            "output_audio_codec": "wav",
+        }
+        response = request_with_retry("POST", f"{BASE}/text-to-speech", service="Sarvam",
+                                      headers=_headers(), json=body, timeout=120.0)
+        audio, sr = sf.read(io.BytesIO(base64.b64decode(response.json()["audios"][0])), dtype="float32",
+                            always_2d=True)
         return audio.T, sr

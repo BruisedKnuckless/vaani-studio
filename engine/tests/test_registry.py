@@ -90,3 +90,53 @@ def test_hinglish_translation_has_no_local_option_so_auto_needs_a_key():
     # The fake local MT doesn't speak Hinglish; only the LLM does.
     assert make_registry({}).resolve_plan("transcribe", "en", "hinglish", "auto").blocking
     assert not make_registry({"anthropic": "k"}).resolve_plan("transcribe", "en", "hinglish", "auto").blocking
+
+
+def _voice_registry(keys):
+    from fakes import FakeCloudTTS
+
+    registry = make_registry(keys)
+    clone, studio = FakeCloudTTS(), FakeCloudTTS()
+    clone.id, clone.name = "sarvam_tts", "Sarvam voice clone"
+    studio.id, studio.name, studio.rank = "sarvam_bulbul", "Sarvam studio voice", 50
+    registry.register(clone)
+    registry.register(studio)
+    return registry
+
+
+def test_auto_prefers_cloud_voice_when_key_present():
+    plan = _voice_registry({"sarvam": "k"}).resolve_plan("dub", "mr", "en", "auto")
+    assert kinds(plan)["tts"][0] in ("sarvam_tts", "cloud_tts")
+    assert kinds(_voice_registry({}).resolve_plan("dub", "mr", "en", "auto"))["tts"][0] == "local_tts"
+
+
+def test_voice_option_picks_engine_and_survives_mode_changes():
+    registry = _voice_registry({"sarvam": "k"})
+    for mode in ("local", "cloud", "auto"):
+        plan = registry.resolve_plan("dub", "mr", "en", mode, options={"voice": "sarvam_studio"})
+        assert kinds(plan)["tts"] == ("sarvam_bulbul", "ready")
+    plan = registry.resolve_plan("dub", "mr", "en", "cloud", options={"voice": "local"})
+    assert kinds(plan)["tts"][0] == "local_tts"
+
+
+def test_sarvam_voice_without_key_blocks_with_local_alternative():
+    plan = _voice_registry({}).resolve_plan("dub", "mr", "en", "local", options={"voice": "sarvam_clone"})
+    step = next(s for s in plan.steps if s.stage == "tts")
+    assert step.status == "missing_key" and step.local_alternative == "local_tts"
+
+
+def test_voice_match_is_dropped_for_cloud_voices():
+    registry = _voice_registry({"sarvam": "k"})
+    from fakes import FakeLocalTTS
+    from vaani_engine.providers.base import Stage, VoiceConverter
+
+    class FakeVC(VoiceConverter):
+        id, name, kind = "fake_vc", "Fake VC", "local"
+        def convert(self, audio, sr, ref_audio_path):
+            return audio, sr
+
+    registry.register(FakeVC())
+    cloud = registry.resolve_plan("dub", "mr", "en", "cloud", options={"voice_match": True})
+    local = registry.resolve_plan("dub", "mr", "en", "local", options={"voice_match": True})
+    assert "voice_match" not in [s.stage for s in cloud.steps]
+    assert "voice_match" in [s.stage for s in local.steps]

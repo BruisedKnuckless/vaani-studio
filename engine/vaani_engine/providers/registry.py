@@ -25,6 +25,8 @@ FIXED_STAGES = {Stage.POLISH: (POLISH_ID, "Built-in EQ, compressor & loudness")}
 
 # Enhance's "quality" option picks the noise remover unless the user overrides it.
 QUALITY_DENOISERS = {"fast": "deepfilternet", "high": "mossformer2", "basic": "basic_dsp"}
+# Dub's "voice" option picks the speech engine: Sarvam clone, Sarvam studio voice, or on this Mac.
+VOICE_CHOICES = {"sarvam_clone": "sarvam_tts", "sarvam_studio": "sarvam_bulbul"}
 
 
 @dataclass
@@ -117,7 +119,8 @@ def auto_preference(stage: Stage, src: str, tgt: str | None) -> list[Kind]:
         # LLMs handle context, Hinglish and dubbing length limits best.
         return ["cloud", "local"]
     if stage == Stage.TTS:
-        return ["cloud", "local"] if tgt == "mr" else ["local", "cloud"]
+        # Sarvam's cloned voices sound the most natural; local Chatterbox is the free fallback.
+        return ["cloud", "local"]
     return ["local", "cloud"]
 
 
@@ -194,6 +197,13 @@ class Registry:
             override = overrides.get(stage.value)
             if not override and stage == Stage.DENOISE:
                 override = QUALITY_DENOISERS.get(options.get("quality", ""))
+            if not override and stage == Stage.TTS:
+                voice = options.get("voice", "auto")
+                if voice in VOICE_CHOICES:
+                    override = VOICE_CHOICES[voice]
+                elif voice == "local":
+                    local_tts = self._best(stage, src, tgt, "local") or next(iter(self.for_stage(stage, src, tgt, "local")), None)
+                    override = local_tts.id if local_tts else None
             if override and override in self._providers:
                 provider = self._providers[override]
                 if offline and provider.kind == "cloud":
@@ -242,6 +252,11 @@ class Registry:
             step.fallback_id = other.id if other else None
             steps.append(step)
 
+        # Voice matching re-processes speech through the local converter; it only helps voices made
+        # on this Mac and would make a cloud voice (already the speaker's, or a studio voice) less natural.
+        tts = next((st for st in steps if st.stage == Stage.TTS.value), None)
+        if tts and tts.kind == "cloud":
+            steps = [st for st in steps if st.stage != Stage.VOICE_MATCH.value]
         return Plan(job_type, mode, src, tgt, steps, offline)
 
     def _unavailable(self, stage: Stage, note: str) -> StagePlan:

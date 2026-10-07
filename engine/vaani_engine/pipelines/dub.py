@@ -202,9 +202,10 @@ def run(ctx) -> dict:
         ctx.progress(0.56 + 0.36 * n / max(len(lines), 1), f"Voicing line {n + 1}/{len(lines)}")
         text = clean_for_speech(seg.translation)
         clip, clip_sr = ctx.run_stage(Stage.TTS, lambda p: p.synthesize(
-            text, tgt, str(ref_path), ref_text, max_duration=slots[i] if p.kind == "cloud" else None))
+            text, tgt, str(ref_path), ref_text, max_duration=slots[i] if p.kind == "cloud" else None, voice=opts.get("voice_name")))
         clip = trim_silence(audio_io.resample(audio_io.to_mono(clip), clip_sr, SR), SR)
-        if ctx.has_stage(Stage.VOICE_MATCH):
+        voiced_locally = ctx.registry.get(ctx.job.providers_used.get(Stage.TTS.value, tts.id)).kind == "local"
+        if ctx.has_stage(Stage.VOICE_MATCH) and voiced_locally:
             matched, msr = ctx.run_stage(Stage.VOICE_MATCH, lambda p: p.convert(clip, SR, str(ref_path)))
             clip = trim_silence(audio_io.resample(audio_io.to_mono(matched), msr, SR), SR)
         natural = clip.shape[-1] / SR
@@ -217,7 +218,7 @@ def run(ctx) -> dict:
                 seg.translation = shorter
                 retry, rsr = ctx.run_stage(Stage.TTS, lambda p: p.synthesize(
                     clean_for_speech(shorter), tgt, str(ref_path), ref_text,
-                    max_duration=slots[i] if p.kind == "cloud" else None))
+                    max_duration=slots[i] if p.kind == "cloud" else None, voice=opts.get("voice_name")))
                 clip = trim_silence(audio_io.resample(audio_io.to_mono(retry), rsr, SR), SR)
                 natural = clip.shape[-1] / SR
         clip, ratio = fit_to_slot(clip, SR, slots[i])

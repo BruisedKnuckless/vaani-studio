@@ -51,7 +51,7 @@ class ChatterboxTTS(_VoiceRuntime, TTS):
     rank = 10
     heavy = True
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None):
         out = self._tmp()
         WorkerHost.get(self.runtime).call("tts", {
             "model_dir": str(models.download("chatterbox-mlx")), "text": text, "language": language,
@@ -73,7 +73,7 @@ class MMSMarathiClone(_VoiceRuntime, TTS):
     rank = 30
     heavy = True
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None, voice=None):
         host = WorkerHost.get(self.runtime)
         plain = self._tmp()
         host.call("mms", {"model_dir": str(models.download("mms-tts-mar")), "text": text, "out_path": plain})

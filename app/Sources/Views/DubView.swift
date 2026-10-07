@@ -9,6 +9,8 @@ struct DubView: View {
     @AppStorage("dub.voiceMatch") private var voiceMatch = false
     @AppStorage("dub.format") private var format = "wav"
     @AppStorage("dub.consent") private var consent = false
+    @AppStorage("dub.voice") private var voiceChoice = "auto"
+    @AppStorage("dub.voiceName") private var voiceName = "shubh"
 
     @State private var file: URL?
     @State private var request = PlanRequest(jobType: .dub)
@@ -17,6 +19,17 @@ struct DubView: View {
     @State private var starting = false
 
     private static let targets: [Language] = [.en, .hi, .mr]
+    /// Bulbul v3 preset voices (Sarvam).
+    private static let studioVoices = ["shubh", "aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan",
+        "simran", "kavya", "amit", "dev", "ishita", "shreya", "ratan", "varun", "manan", "sumit", "roopa", "kabir",
+        "aayan", "ashutosh", "advait", "anand", "tanya", "tarun", "sunny", "mani", "gokul", "vijay", "shruti",
+        "suhani", "mohit", "kavitha", "rehan", "soham", "rupali"]
+
+    private var clonesVoice: Bool { voiceChoice != "sarvam_studio" }
+    /// Voice matching only applies to voices made on this Mac.
+    private var voiceMadeLocally: Bool {
+        voiceChoice == "local" || (voiceChoice == "auto" && (!app.hasKey(.sarvam) || request.mode == .local))
+    }
 
     var body: some View {
         ScrollView {
@@ -27,8 +40,8 @@ struct DubView: View {
                 if file != nil {
                     options
                     ProcessingModePicker(request: $request, plan: $plan)
-                    consentRow
-                    StartBar(title: "Dub Audio", symbol: "person.wave.2", plan: consent ? plan : nil,
+                    if clonesVoice { consentRow }
+                    StartBar(title: "Dub Audio", symbol: "person.wave.2", plan: (consent || !clonesVoice) ? plan : nil,
                              busy: starting || app.job(jobID)?.isActive == true) { start() }
                 }
                 if let job = app.job(jobID) {
@@ -58,14 +71,15 @@ struct DubView: View {
         }
         #if DEBUG
         .onChange(of: plan) { _, plan in
-            if DebugSupport.autostart, DebugSupport.screen == .dub, consent, jobID == nil, !starting,
+            if DebugSupport.autostart, DebugSupport.screen == .dub, consent || !clonesVoice, jobID == nil, !starting,
                let plan, !plan.blocking { start() }
         }
         #endif
         .onChange(of: request.mode) { _, mode in savedMode = mode }
         .onChange(of: file) { _, _ in jobID = nil }
-        .onChange(of: [source, target, format]) { _, _ in sync() }
+        .onChange(of: [source, target, format, voiceChoice, voiceName]) { _, _ in sync() }
         .onChange(of: [keepBackground, voiceMatch]) { _, _ in sync() }
+        .onChange(of: request.mode) { _, _ in sync() }
     }
 
     private var options: some View {
@@ -86,12 +100,40 @@ struct DubView: View {
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
                 GridRow {
+                    Text("Voice")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Picker("Voice", selection: $voiceChoice) {
+                            Text("Automatic: Sarvam if you've added a key, otherwise this Mac").tag("auto")
+                            Text("Speaker's own voice · Sarvam (most natural, cloud)").tag("sarvam_clone")
+                            Text("Speaker's own voice · on this Mac (free, private)").tag("local")
+                            Text("Sarvam studio voice (natural, but not the speaker's)").tag("sarvam_studio")
+                        }
+                        .labelsHidden().fixedSize()
+                        if voiceChoice == "sarvam_studio" {
+                            Picker("Studio voice", selection: $voiceName) {
+                                ForEach(Self.studioVoices, id: \.self) { Text($0.capitalized).tag($0) }
+                            }
+                            .fixedSize()
+                        }
+                        if voiceChoice != "local", !app.hasKey(.sarvam) {
+                            HStack(spacing: 6) {
+                                Text(voiceChoice == "auto" ? "No Sarvam key yet, so the voice is made on this Mac."
+                                                           : "Needs a Sarvam API key.")
+                                Button("Add key…") { app.screen = .settings }.controlSize(.small)
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                GridRow {
                     Text("Background")
                     Toggle("Keep the original music and ambience", isOn: $keepBackground)
                 }
-                GridRow {
-                    Text("Voice likeness")
-                    Toggle("Extra voice-matching pass (slower, closer to the speaker)", isOn: $voiceMatch)
+                if voiceMadeLocally {
+                    GridRow {
+                        Text("Voice likeness")
+                        Toggle("Extra voice-matching pass (slower, closer to the speaker)", isOn: $voiceMatch)
+                    }
                 }
                 GridRow {
                     Text("Save as")
@@ -122,12 +164,13 @@ struct DubView: View {
     private func sync() {
         request.srcLang = source
         request.tgtLang = target
-        request.options = ["keep_background": .bool(keepBackground), "voice_match": .bool(voiceMatch),
-                           "format": .string(format)]
+        request.options = ["keep_background": .bool(keepBackground), "voice_match": .bool(voiceMatch && voiceMadeLocally),
+                           "format": .string(format), "voice": .string(voiceChoice),
+                           "voice_name": .string(voiceName)]
     }
 
     private func start() {
-        guard let file, consent else { return }
+        guard let file, consent || !clonesVoice else { return }
         starting = true
         Task {
             if let job = await app.submit(request, file: file) { jobID = job.id }

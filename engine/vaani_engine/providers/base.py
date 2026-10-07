@@ -196,9 +196,10 @@ class TTS(Provider):
 
     @abstractmethod
     def synthesize(self, text: str, language: str, ref_audio_path: str, ref_text: str,
-                   max_duration: float | None = None) -> tuple[np.ndarray, int]:
-        """Speak `text` in the voice of the reference clip. Providers that can fit
-        speech to a length use `max_duration`; the dub pipeline time-fits the rest."""
+                   max_duration: float | None = None, voice: str | None = None) -> tuple[np.ndarray, int]:
+        """Speak `text` in the voice of the reference clip (or, for preset-voice providers,
+        in the named `voice`). Providers that can fit speech to a length use `max_duration`;
+        the dub pipeline time-fits the rest."""
 
     def prepare(self, ref_audio_path: str, ref_text: str, language: str) -> None:
         """Optional one-time setup per job (e.g. registering a cloned voice)."""
