@@ -66,39 +66,67 @@ class SarvamLLMTranslator(Translator):
     rank = 25
     follows_length = True
 
-    def translate(self, texts, src, tgt, durations=None, progress: ProgressFn = noop_progress):
-        import json
+    # Reasoning tokens count against max_tokens, so translation asks for little reasoning and, if the
+    # model still runs out of room, retries without reasoning and then with smaller batches.
+    EFFORTS = ("low", None)
+    MAX_TOKENS = 16384
 
-        key = settings.key("sarvam") or ""
-        headers = {"api-subscription-key": key, "Authorization": f"Bearer {key}"}
+    def translate(self, texts, src, tgt, durations=None, progress: ProgressFn = noop_progress):
         system = tp.system_prompt(src, tgt, dubbing=durations is not None)
         out: list[str] = []
         for offset, batch, batch_durations in tp.batches(texts, durations, size=30):
             progress(offset / max(len(texts), 1), f"Translating {offset + 1}–{offset + len(batch)}")
-            body = {
-                "model": "sarvam-105b",
-                "messages": [{"role": "system", "content": system},
-                             {"role": "user", "content": tp.user_message(batch, tgt, batch_durations)}],
-                "temperature": 0.3,
-                "max_tokens": 8192,
-                "response_format": {"type": "json_schema",
-                                    "json_schema": {"name": "translations", "schema": tp.SCHEMA, "strict": True}},
-            }
-            response = request_with_retry("POST", f"{BASE}/v1/chat/completions", service="Sarvam",
-                                          headers=headers, json=body, timeout=300.0)
-            choice = response.json()["choices"][0]
-            if choice.get("finish_reason") == "length":
-                raise ProviderError("Sarvam-105B: the translation was cut off (transcript too long for one request)")
-            content = (choice.get("message") or {}).get("content") or ""
-            try:
-                items = json.loads(content)["translations"]
-            except (json.JSONDecodeError, KeyError, TypeError):
-                items = tp.parse(content, len(batch))
-            if len(items) != len(batch):
-                raise ProviderError(f"Sarvam-105B returned {len(items)} lines for {len(batch)}")
-            out.extend(str(t) for t in items)
+            out.extend(self._translate_batch(system, batch, tgt, batch_durations))
         progress(1.0, "Translated")
         return out
+
+    def _translate_batch(self, system, batch, tgt, durations) -> list[str]:
+        for effort in self.EFFORTS:
+            items = self._request(system, batch, tgt, durations, effort)
+            if items is not None:
+                return items
+        if len(batch) > 1:
+            half = len(batch) // 2
+            return (self._translate_batch(system, batch[:half], tgt, durations[:half] if durations else None)
+                    + self._translate_batch(system, batch[half:], tgt, durations[half:] if durations else None))
+        raise ProviderError("Sarvam-105B kept running out of output space on this line; try Translate with "
+                            "another service (Advanced) or shorten the line")
+
+    def _request(self, system, batch, tgt, durations, effort) -> list[str] | None:
+        """One chat request. Returns None when the model ran out of tokens before answering."""
+        import json
+        import logging
+
+        key = settings.key("sarvam") or ""
+        headers = {"api-subscription-key": key, "Authorization": f"Bearer {key}"}
+        body = {
+            "model": "sarvam-105b",
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": tp.user_message(batch, tgt, durations)}],
+            "temperature": 0.3,
+            "max_tokens": self.MAX_TOKENS,
+            "reasoning_effort": effort,  # None is sent as null, which turns reasoning off
+            "response_format": {"type": "json_schema",
+                                "json_schema": {"name": "translations", "schema": tp.SCHEMA, "strict": True}},
+        }
+        data = request_with_retry("POST", f"{BASE}/v1/chat/completions", service="Sarvam",
+                                  headers=headers, json=body, timeout=300.0).json()
+        choice = data["choices"][0]
+        usage = data.get("usage") or {}
+        reasoning = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
+        if choice.get("finish_reason") == "length":
+            logging.getLogger("vaani").warning(
+                "Sarvam-105B ran out of tokens (effort=%s, completion=%s, reasoning=%s); retrying",
+                effort, usage.get("completion_tokens"), reasoning)
+            return None
+        content = (choice.get("message") or {}).get("content") or ""
+        try:
+            items = json.loads(content)["translations"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            items = tp.parse(content, len(batch))
+        if len(items) != len(batch):
+            raise ProviderError(f"Sarvam-105B returned {len(items)} lines for {len(batch)}")
+        return [str(t) for t in items]
 
 
 class SarvamTranslator(Translator):
