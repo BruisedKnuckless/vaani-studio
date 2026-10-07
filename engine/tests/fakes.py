@@ -67,7 +67,7 @@ class FakeLocalTTS(TTS):
     id, name, kind = "local_tts", "Local TTS", "local"
     languages = frozenset({"en", "hi", "mr"})
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, speed=1.0):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None):
         return np.zeros((1, 24000), dtype=np.float32), 24000
 
 
@@ -75,7 +75,7 @@ class FakeCloudTTS(TTS):
     id, name, kind, key_name = "cloud_tts", "Cloud TTS", "cloud", "sarvam"
     languages = frozenset({"en", "hi", "mr"})
 
-    def synthesize(self, text, language, ref_audio_path, ref_text, speed=1.0):
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None):
         return np.zeros((1, 24000), dtype=np.float32), 24000
 
 

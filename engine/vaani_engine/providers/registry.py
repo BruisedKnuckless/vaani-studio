@@ -100,7 +100,8 @@ def stages_for(job_type: str, src: str, tgt: str | None, options: dict) -> list[
             stages.append(Stage.TRANSLATE)
         return stages
     if job_type == "dub":
-        stages = [Stage.SEPARATE, Stage.ASR, Stage.TRANSLATE, Stage.TTS]
+        stages = [Stage.SEPARATE, Stage.TTS] if options.get("script") else \
+            [Stage.SEPARATE, Stage.ASR, Stage.TRANSLATE, Stage.TTS]
         if options.get("voice_match"):
             stages.append(Stage.VOICE_MATCH)
         return stages

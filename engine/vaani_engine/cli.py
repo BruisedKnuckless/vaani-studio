@@ -99,6 +99,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--clean", action="store_true", help="remove noise before transcribing")
     _mode_args(p)
 
+    p = sub.add_parser("dub", help="dub into another language in the speaker's voice")
+    p.add_argument("input")
+    p.add_argument("--from", dest="src", default="auto", choices=["auto", "en", "hi", "mr"])
+    p.add_argument("--to", dest="tgt", required=True, choices=["en", "hi", "mr"])
+    p.add_argument("--match-voice", action="store_true", help="extra voice-conversion pass")
+    p.add_argument("--no-background", action="store_true", help="voice only, without the original music/ambience")
+    p.add_argument("--format", choices=["wav", "m4a", "mp3"], default="wav")
+    _mode_args(p)
+
     p = sub.add_parser("plan", help="show which provider would run each step")
     p.add_argument("job_type", choices=["enhance", "transcribe", "dub"])
     p.add_argument("--from", dest="src", default="auto")
@@ -161,6 +170,12 @@ def main(argv: list[str] | None = None) -> int:
                         "polish": not args.no_polish, "loudness": args.loudness, "format": args.format},
         }
         return _run("enhance", args.input, params)
+    if args.command == "dub":
+        params = {"mode": args.mode, "overrides": _overrides(args), "src_lang": args.src, "tgt_lang": args.tgt,
+                  "options": {"voice_match": args.match_voice, "keep_background": not args.no_background,
+                              "format": args.format}}
+        return _run("dub", args.input, params)
+
     if args.command == "transcribe":
         params = {"mode": args.mode, "overrides": _overrides(args), "src_lang": args.lang,
                   "tgt_lang": args.tgt, "options": {"enhance_first": args.clean}}

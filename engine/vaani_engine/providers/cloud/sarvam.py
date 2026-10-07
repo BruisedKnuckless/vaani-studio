@@ -11,7 +11,7 @@ import numpy as np
 
 from ...config import settings
 from ..asr_base import ChunkedASR
-from ..base import ProgressFn, Translator, noop_progress
+from ..base import TTS, ProgressFn, Translator, noop_progress
 from .common import request_with_retry, wav_bytes
 
 BASE = "https://api.sarvam.ai"
@@ -89,3 +89,41 @@ class SarvamTranslator(Translator):
                 done += 1
                 progress(done / len(texts), f"Translated {done}/{len(texts)}")
         return out
+
+
+class SarvamVoiceClone(TTS):
+    """Bulbul voice cloning: speaks any supported language in the reference speaker's voice.
+    Uses a per-request reference clip, so no voice is stored in your Sarvam account."""
+
+    id = "sarvam_tts"
+    name = "Sarvam voice clone"
+    kind = "cloud"
+    key_name = "sarvam"
+    languages = frozenset({"en", "hi", "mr"})
+    rank = 10
+
+    def synthesize(self, text, language, ref_audio_path, ref_text, max_duration=None):
+        import base64
+        import io
+
+        import soundfile as sf
+
+        data = {
+            "text": text[:1000],
+            "language_code": BCP47[language],
+            "speech_sample_rate": "24000",
+            "output_audio_codec": "wav",
+            "enable_text_normalization": "true",
+        }
+        if ref_text:
+            data["ref_text"] = ref_text[:500]
+        if max_duration:
+            # Sarvam time-stretches the result to fit the dubbing slot.
+            data["max_audio_duration"] = f"{max_duration:.2f}"
+        with open(ref_audio_path, "rb") as ref:
+            response = request_with_retry(
+                "POST", f"{BASE}/voices/clone", service="Sarvam", headers=_headers(), data=data,
+                files={"ref_audio": ("reference.wav", ref.read(), "audio/wav")}, timeout=180.0,
+            )
+        audio, sr = sf.read(io.BytesIO(base64.b64decode(response.json()["audio"])), dtype="float32", always_2d=True)
+        return audio.T, sr

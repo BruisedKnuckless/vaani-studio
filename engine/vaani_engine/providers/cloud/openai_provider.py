@@ -67,6 +67,7 @@ class OpenAITranslator(Translator):
     key_name = "openai"
     languages = frozenset({"auto", "en", "hi", "mr", "hinglish"})
     rank = 20
+    follows_length = True
 
     def translate(self, texts, src, tgt, durations=None, progress: ProgressFn = noop_progress):
         client = _client()

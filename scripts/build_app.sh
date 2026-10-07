@@ -7,10 +7,7 @@ CONFIG="${1:-Release}"
 cd "$ROOT/app"
 xcodegen generate --quiet
 xcodebuild -project Vaani.xcodeproj -scheme Vaani -configuration "$CONFIG" \
-  -derivedDataPath "$ROOT/build/DerivedData" -destination 'platform=macOS' \
-  CODE_SIGN_IDENTITY=- build | xcbeautify 2>/dev/null || \
-xcodebuild -project Vaani.xcodeproj -scheme Vaani -configuration "$CONFIG" \
-  -derivedDataPath "$ROOT/build/DerivedData" -destination 'platform=macOS' \
+  -derivedDataPath "$ROOT/build/DerivedData" -destination 'platform=macOS,arch=arm64' \
   CODE_SIGN_IDENTITY=- -quiet build
 
 APP="$ROOT/build/DerivedData/Build/Products/$CONFIG/Vaani.app"

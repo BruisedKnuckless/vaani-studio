@@ -45,11 +45,13 @@ CATALOG: dict[str, ModelSpec] = {m.id: m for m in [
               allow_patterns=("*.json", "*.py", "model.safetensors", "*.SRC", "*.TGT", "*.model")),
     ModelSpec("local-llm", "Qwen3 4B Instruct (MLX 4-bit)", "On-device Hinglish and dubbing-aware translation",
               "mlx-community/Qwen3-4B-Instruct-2507-4bit", 2279, "Apache-2.0"),
-    ModelSpec("xtts-v2", "XTTS-v2", "Voice-cloned speech: English, Hindi", "coqui/XTTS-v2", 2089,
-              "Coqui CPML (non-commercial)", runtime="xtts", commercial_ok=False,
-              allow_patterns=("*.json", "model.pth", "dvae.pth", "mel_stats.pth", "speakers_xtts.pth", "vocab.json")),
-    ModelSpec("indicf5", "IndicF5", "Voice-cloned speech: Marathi, Hindi", "ai4bharat/IndicF5", 1406, "MIT",
-              gated=True, runtime="indicf5"),
+    ModelSpec("chatterbox-mlx", "Chatterbox multilingual (MLX)", "Voice-cloned speech in English and Hindi",
+              "mlx-community/chatterbox-multilingual-v3", 2711, "MIT", runtime="mlxvoice"),
+    ModelSpec("chatterbox-vc", "Chatterbox voice conversion", "Makes generated speech sound like the speaker",
+              "ResembleAI/chatterbox", 1057, "MIT", runtime="voice", allow_patterns=("s3gen.pt", "conds.pt")),
+    ModelSpec("mms-tts-mar", "MMS-TTS Marathi", "Marathi speech (then matched to the speaker's voice)",
+              "facebook/mms-tts-mar", 146, "CC-BY-NC-4.0 (non-commercial)", runtime="voice", commercial_ok=False,
+              allow_patterns=("*.json", "model.safetensors")),
 ]}
 
 

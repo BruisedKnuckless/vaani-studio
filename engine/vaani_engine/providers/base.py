@@ -175,6 +175,8 @@ class ASR(Provider):
 
 class Translator(Provider):
     stage = Stage.TRANSLATE
+    # True when the translator honours `durations` (LLMs), so dubbing can ask for shorter lines.
+    follows_length: bool = False
 
     @abstractmethod
     def translate(self, texts: list[str], src: str, tgt: str,
@@ -189,8 +191,9 @@ class TTS(Provider):
 
     @abstractmethod
     def synthesize(self, text: str, language: str, ref_audio_path: str, ref_text: str,
-                   speed: float = 1.0) -> tuple[np.ndarray, int]:
-        """Speak `text` in the voice of the reference clip."""
+                   max_duration: float | None = None) -> tuple[np.ndarray, int]:
+        """Speak `text` in the voice of the reference clip. Providers that can fit
+        speech to a length use `max_duration`; the dub pipeline time-fits the rest."""
 
     def prepare(self, ref_audio_path: str, ref_text: str, language: str) -> None:
         """Optional one-time setup per job (e.g. registering a cloned voice)."""

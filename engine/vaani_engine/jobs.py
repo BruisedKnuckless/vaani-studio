@@ -97,6 +97,7 @@ class JobContext:
         self.out_dir = Path(job.out_dir)
         self.input_path = Path(job.input_path)
         self._cancel = threading.Event()
+        self._announced: set[Stage] = set()
 
     # progress -----------------------------------------------------------
     def progress(self, fraction: float, message: str | None = None) -> None:
@@ -132,6 +133,14 @@ class JobContext:
             raise ProviderError(f"No provider planned for {stage.value}")
         return self._manager.registry.get(step.provider_id)
 
+    def release(self, stage: Stage) -> None:
+        """Free a heavy model once its step is finished (keeps memory low on long jobs)."""
+        provider_id = self.job.providers_used.get(stage.value)
+        if provider_id:
+            provider = self.registry.get(provider_id)
+            if provider.heavy:
+                provider.unload()
+
     def run_stage(self, stage: Stage, fn: Callable[[Any], Any]) -> Any:
         """Call `fn(provider)` with the planned provider. In Auto mode a failure
         falls back to the other side; in Local/Cloud mode it is reported so the
@@ -140,7 +149,9 @@ class JobContext:
         if step is None:
             raise ProviderError(f"Step {stage.value} is not part of this job")
         provider = self.provider_for(stage)
-        self.log(f"{step.label}: {provider.name} ({'cloud' if provider.kind == 'cloud' else 'this Mac'})")
+        if stage not in self._announced:  # steps called per line (TTS) log once
+            self._announced.add(stage)
+            self.log(f"{step.label}: {provider.name} ({'cloud' if provider.kind == 'cloud' else 'this Mac'})")
         try:
             result = fn(provider)
             self.job.providers_used[stage.value] = provider.id

@@ -64,9 +64,9 @@ final class EngineProcess {
             }
             for line in splitter.append(data) { continuation.yield(line) }
         }
-        process.terminationHandler = { proc in
+        process.terminationHandler = { [weak self] proc in
             let status = proc.terminationStatus
-            Task { @MainActor [weak self] in self?.handleExit(status) }
+            Task { @MainActor in self?.handleExit(status) }
         }
 
         try process.run()

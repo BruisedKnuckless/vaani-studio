@@ -46,6 +46,7 @@ class LocalLLMTranslator(Translator):
     kind = "local"
     license = "Apache-2.0"
     languages = frozenset({"en", "hi", "mr", "hinglish"})
+    follows_length = True
     model_ids = ("local-llm",)
     python_modules = ("mlx_lm",)
     heavy = True

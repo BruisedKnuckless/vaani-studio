@@ -19,6 +19,7 @@ class ClaudeTranslator(Translator):
     key_name = "anthropic"
     languages = frozenset({"auto", "en", "hi", "mr", "hinglish"})
     rank = 10
+    follows_length = True
 
     def translate(self, texts, src, tgt, durations=None, progress: ProgressFn = noop_progress):
         import anthropic

@@ -1,0 +1,13 @@
+[project]
+name = "vaani-voice-runtime"
+version = "0.1.0"
+description = "Isolated runtime for voice-cloned speech (Chatterbox) and Marathi MMS-TTS. Pins its own torch/transformers."
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "chatterbox-tts>=0.1.7",
+    "soundfile>=0.12",
+    "setuptools<81",  # resemble-perth (the AI-speech watermark) still imports pkg_resources
+]
+
+[tool.uv]
+package = false
