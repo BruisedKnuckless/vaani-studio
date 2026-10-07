@@ -141,6 +141,29 @@ def delete_job(job_id: str):
     return {"deleted": job_id}
 
 
+class SegmentsIn(BaseModel):
+    segments: list[dict]
+
+
+@app.put("/jobs/{job_id}/segments")
+def save_segments(job_id: str, body: SegmentsIn):
+    """Save an edited transcript/translation and rewrite the subtitle files."""
+    from .pipelines.transcribe import write_outputs
+    from .providers.base import Segment, Transcript
+
+    mgr = get_manager()
+    job = mgr.jobs.get(job_id)
+    if not job or job.status != "done" or "segments" not in job.outputs:
+        raise HTTPException(404, "No finished transcript for this job")
+    fields = ("start", "end", "text", "translation")
+    segments = [Segment(**{k: s.get(k) for k in fields if k in s}) for s in body.segments]
+    transcript = Transcript(job.outputs.get("language", "auto"), segments)
+    tgt = job.outputs.get("target_language")
+    job.outputs.update(write_outputs(Path(job.out_dir), transcript, tgt))
+    mgr._touch(job, persist=True)
+    return job.to_dict()
+
+
 @app.get("/events")
 async def events(request: Request):
     """Server-sent events: one `job` event per job update."""

@@ -18,6 +18,7 @@ Mode = Literal["local", "cloud", "auto"]
 JobType = Literal["enhance", "transcribe", "dub"]
 
 POLISH_ID = "dsp_polish"
+SERVICE_NAMES = {"sarvam": "Sarvam AI", "anthropic": "Anthropic", "openai": "OpenAI", "huggingface": "Hugging Face"}
 
 # Stages with no provider choice: they always run on this Mac.
 FIXED_STAGES = {Stage.POLISH: (POLISH_ID, "Built-in EQ, compressor & loudness")}
@@ -94,7 +95,7 @@ def stages_for(job_type: str, src: str, tgt: str | None, options: dict) -> list[
         stages = [Stage.SEPARATE] if options.get("isolate_vocals") else []
         return stages + [Stage.DENOISE, Stage.POLISH]
     if job_type == "transcribe":
-        stages = [Stage.ASR]
+        stages = [] if options.get("segments") else [Stage.ASR]
         if tgt and tgt != src:
             stages.append(Stage.TRANSLATE)
         return stages
@@ -141,25 +142,26 @@ class Registry:
                  if p.stage == stage and p.supports(src, tgt) and (kind is None or p.kind == kind)]
         return sorted(found, key=lambda p: p.rank_for(src, tgt))
 
-    def status_of(self, provider: Provider) -> tuple[str, str]:
+    def status_of(self, provider: Provider, src: str | None = None, tgt: str | None = None) -> tuple[str, str]:
         if provider.kind == "cloud":
             if self.settings.offline:
                 return "unavailable", "Offline mode is on"
             if provider.key_name and not self.settings.has_key(provider.key_name):
-                return "missing_key", f"Add a {provider.key_name.title()} API key in Settings"
-        return provider.readiness()
+                service = SERVICE_NAMES.get(provider.key_name, provider.key_name)
+                return "missing_key", f"Add your {service} API key in Settings"
+        return provider.readiness(src, tgt)
 
-    def usable(self, provider: Provider) -> bool:
-        return self.status_of(provider)[0] in ("ready", "needs_download")
+    def usable(self, provider: Provider, src: str | None = None, tgt: str | None = None) -> bool:
+        return self.status_of(provider, src, tgt)[0] in ("ready", "needs_download")
 
     def _best(self, stage: Stage, src: str, tgt: str | None, kind: Kind) -> Provider | None:
         candidates = self.for_stage(stage, src, tgt, kind)
-        return next((p for p in candidates if self.usable(p)), None)
+        return next((p for p in candidates if self.usable(p, src, tgt)), None)
 
     def _step(self, stage: Stage, provider: Provider, status: str | None = None, note: str | None = None,
               src: str = "auto", tgt: str | None = None) -> StagePlan:
-        state, why = self.status_of(provider)
-        alternatives = [Choice(p.id, p.name, p.kind, self.status_of(p)[0])
+        state, why = self.status_of(provider, src, tgt)
+        alternatives = [Choice(p.id, p.name, p.kind, self.status_of(p, src, tgt)[0])
                         for p in self.for_stage(stage, src, tgt)]
         local = self._best(stage, src, tgt, "local")
         return StagePlan(

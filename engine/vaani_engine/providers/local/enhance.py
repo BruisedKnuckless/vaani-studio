@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import gc
 import threading
-from importlib.util import find_spec
 
 import numpy as np
 
 from ... import audio_io
-from ...models_manager import models, readiness_for
+from ...models_manager import models
 from ...pipelines.dsp import match_channels, match_length
 from ..base import Denoiser, ProgressFn, Separator, noop_progress
 from .torch_utils import shim_torchaudio_backend, torch_device
@@ -38,17 +37,13 @@ class DeepFilterNetDenoiser(Denoiser):
     kind = "local"
     license = "MIT/Apache-2.0"
     model_ids = ("deepfilternet3",)
+    python_modules = ("df",)
     rank = 10
 
     def __init__(self):
         self._model = None
         self._state = None
         self._lock = threading.Lock()
-
-    def readiness(self):
-        if not find_spec("df"):
-            return "unavailable", "DeepFilterNet isn't installed (run scripts/bootstrap.sh)"
-        return "ready", ""
 
     def _load(self):
         with self._lock:
@@ -87,16 +82,12 @@ class MossFormerDenoiser(Denoiser):
     kind = "local"
     license = "Apache-2.0"
     model_ids = ("mossformer2-se",)
+    python_modules = ("mlx_audio",)
     rank = 20
     heavy = True
 
     def __init__(self):
         self._model = None
-
-    def readiness(self):
-        if not find_spec("mlx_audio"):
-            return "unavailable", "mlx-audio isn't installed (run scripts/bootstrap.sh)"
-        return readiness_for(self.model_ids)
 
     def unload(self):
         self._model = None
@@ -124,16 +115,12 @@ class DemucsSeparator(Separator):
     kind = "local"
     license = "MIT"
     model_ids = ("htdemucs",)
+    python_modules = ("demucs",)
     rank = 10
     heavy = True
 
     def __init__(self):
         self._model = None
-
-    def readiness(self):
-        if not find_spec("demucs"):
-            return "unavailable", "Demucs isn't installed (run scripts/bootstrap.sh)"
-        return "ready", ""
 
     def unload(self):
         self._model = None

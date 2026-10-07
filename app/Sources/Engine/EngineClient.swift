@@ -33,6 +33,9 @@ struct EngineClient: Sendable {
     func job(_ id: String) async throws -> Job { try await get("jobs/\(id)") }
     func cancel(_ id: String) async throws -> Job { try await post("jobs/\(id)/cancel", [String: String]()) }
     func deleteJob(_ id: String) async throws { let _: [String: String] = try await send("jobs/\(id)", method: "DELETE") }
+    func saveSegments(_ id: String, segments: [JSONValue]) async throws -> Job {
+        try await send("jobs/\(id)/segments", method: "PUT", body: ["segments": JSONValue.array(segments)])
+    }
     func models() async throws -> [ModelInfo] { try await get("models") }
     func download(model id: String) async throws -> ModelInfo { try await post("models/\(id)/download", [String: String]()) }
     func delete(model id: String) async throws -> ModelInfo { try await send("models/\(id)", method: "DELETE") }
@@ -88,7 +91,11 @@ struct EngineClient: Sendable {
     }
 
     private func post<T: Decodable, B: Encodable>(_ path: String, _ body: B) async throws -> T {
-        var request = makeRequest(path, method: "POST")
+        try await send(path, method: "POST", body: body)
+    }
+
+    private func send<T: Decodable, B: Encodable>(_ path: String, method: String, body: B) async throws -> T {
+        var request = makeRequest(path, method: method)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.encoder.encode(body)
         return try await perform(request)

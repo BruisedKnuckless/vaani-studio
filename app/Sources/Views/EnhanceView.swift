@@ -15,6 +15,7 @@ struct EnhanceView: View {
     @State private var plan: Plan?
     @State private var jobID: String?
     @State private var starting = false
+    @State private var player = ABPlayer()
 
     var body: some View {
         ScrollView {
@@ -118,7 +119,7 @@ struct EnhanceView: View {
                 JobProgressView(job: job) { jobID = $0.id }
                 if job.status == "done", let enhanced = job.outputPath("enhanced") {
                     let original = job.outputPath("original") ?? URL(fileURLWithPath: job.inputPath)
-                    ABPlayerView(items: [("Original", original), ("Enhanced", enhanced)])
+                    ABPlayerView(items: [("Original", original), ("Enhanced", enhanced)], player: player)
                     MetricsRow(metrics: job.metrics)
                     HStack {
                         Button("Show in Finder") { app.reveal(enhanced) }

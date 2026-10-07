@@ -37,9 +37,6 @@ CATALOG: dict[str, ModelSpec] = {m.id: m for m in [
               "mlx-community/whisper-large-v3-turbo", 1614, "MIT"),
     ModelSpec("indic-conformer", "IndicConformer 600M", "Transcribe Marathi and Hindi",
               "ai4bharat/indic-conformer-600m-multilingual", 2557, "MIT", gated=True),
-    ModelSpec("whisper-hinglish", "Whisper Hindi→Hinglish (Swift)", "Transcribe Hinglish in Roman script",
-              "Oriserve/Whisper-Hindi2Hinglish-Swift", 303, "Apache-2.0",
-              allow_patterns=("*.json", "*.safetensors", "*.txt")),
     ModelSpec("indictrans2-en-indic", "IndicTrans2 En→Indic (200M)", "Translate English → Hindi/Marathi",
               "ai4bharat/indictrans2-en-indic-dist-200M", 1110, "MIT", gated=True,
               allow_patterns=("*.json", "*.py", "model.safetensors", "*.SRC", "*.TGT", "*.model")),
@@ -165,10 +162,11 @@ def readiness_for(model_ids: tuple[str, ...]) -> tuple[str, str]:
     missing = [CATALOG[m] for m in model_ids if not models.is_downloaded(m)]
     if not missing:
         return "ready", ""
+    gated = [m for m in missing if m.gated]
+    if gated and not settings.has_key("huggingface"):
+        names = ", ".join(m.name for m in gated)
+        return "unavailable", (f"{names} needs a free Hugging Face token: accept the model's terms on "
+                               "huggingface.co, then add the token in Settings")
     total = sum(m.size_mb for m in missing)
     size = f"{total / 1000:.1f} GB" if total >= 1000 else f"{total} MB"
-    gated = [m for m in missing if m.gated]
-    note = f"Downloads {size} on first use"
-    if gated and not settings.has_key("huggingface"):
-        note += " · needs a Hugging Face token (accept the model terms first)"
-    return "needs_download", note
+    return "needs_download", f"Downloads {size} on first use"

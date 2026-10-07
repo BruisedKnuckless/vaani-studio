@@ -4,6 +4,6 @@ from typing import Callable
 
 
 def get_pipelines() -> dict[str, Callable]:
-    from . import enhance
+    from . import enhance, transcribe
 
-    return {"enhance": enhance.run}
+    return {"enhance": enhance.run, "transcribe": transcribe.run}

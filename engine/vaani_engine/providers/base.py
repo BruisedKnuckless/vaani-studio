@@ -121,9 +121,23 @@ class Provider(ABC):
         """Ordering among providers of the same kind; override for per-language strengths."""
         return self.rank
 
-    def readiness(self) -> tuple[str, str]:
+    # Python packages that must be importable (checked without importing them).
+    python_modules: tuple[str, ...] = ()
+
+    def models_for(self, src: str | None = None, tgt: str | None = None) -> tuple[str, ...]:
+        """Model catalog ids needed for this language pair (defaults to all of model_ids)."""
+        return self.model_ids
+
+    def readiness(self, src: str | None = None, tgt: str | None = None) -> tuple[str, str]:
         """("ready" | "needs_download" | "unavailable", human note)."""
-        return "ready", ""
+        from importlib.util import find_spec
+
+        from ..models_manager import readiness_for
+
+        missing = [m for m in self.python_modules if not find_spec(m)]
+        if missing:
+            return "unavailable", f"{', '.join(missing)} isn't installed (run scripts/bootstrap.sh)"
+        return readiness_for(self.models_for(src, tgt))
 
     def describe(self) -> dict:
         state, note = self.readiness()

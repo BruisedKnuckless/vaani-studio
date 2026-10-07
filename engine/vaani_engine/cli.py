@@ -66,6 +66,12 @@ def _run(job_type: str, input_path: str, params: dict) -> int:
         if key == "metrics":
             print("  Metrics: " + ", ".join(f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}"
                                             for k, v in value.items()))
+        elif key == "segments":
+            for seg in value[:12]:
+                line = f"  [{seg['start']:6.1f}–{seg['end']:6.1f}] {seg['text']}"
+                print(line + (f"\n{'':19}→ {seg['translation']}" if seg.get("translation") else ""))
+            if len(value) > 12:
+                print(f"  … {len(value) - 12} more segments")
         elif isinstance(value, str):
             print(f"  {key}: {value}")
     return 0
@@ -84,6 +90,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-polish", action="store_true")
     p.add_argument("--loudness", choices=["podcast", "social", "broadcast", "off"], default="podcast")
     p.add_argument("--format", choices=["wav", "m4a", "mp3", "flac"], default="wav")
+    _mode_args(p)
+
+    p = sub.add_parser("transcribe", help="transcribe and optionally translate")
+    p.add_argument("input")
+    p.add_argument("--lang", default="auto", choices=["auto", "en", "hi", "mr", "hinglish"])
+    p.add_argument("--to", dest="tgt", default=None, choices=["en", "hi", "mr", "hinglish"])
+    p.add_argument("--clean", action="store_true", help="remove noise before transcribing")
     _mode_args(p)
 
     p = sub.add_parser("plan", help="show which provider would run each step")
@@ -148,6 +161,11 @@ def main(argv: list[str] | None = None) -> int:
                         "polish": not args.no_polish, "loudness": args.loudness, "format": args.format},
         }
         return _run("enhance", args.input, params)
+    if args.command == "transcribe":
+        params = {"mode": args.mode, "overrides": _overrides(args), "src_lang": args.lang,
+                  "tgt_lang": args.tgt, "options": {"enhance_first": args.clean}}
+        code = _run("transcribe", args.input, params)
+        return code
     return 0
 
 

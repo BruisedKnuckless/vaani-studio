@@ -67,8 +67,18 @@ final class ABPlayer {
     }
 
     func seek(fraction: Double) {
-        position = fraction * duration
+        seek(to: fraction * duration)
+    }
+
+    func seek(to seconds: Double) {
+        position = max(0, min(seconds, duration))
         if isPlaying { players[current].currentTime = position }
+    }
+
+    /// Play from `start`, used by transcript rows.
+    func play(from start: Double) {
+        seek(to: start)
+        if !isPlaying { play() }
     }
 
     private func tick() {
@@ -85,7 +95,8 @@ final class ABPlayer {
 
 struct ABPlayerView: View {
     let items: [(label: String, url: URL)]
-    @State private var player = ABPlayer()
+    /// Owned by the screen so it can seek (e.g. jump to a transcript line).
+    var player: ABPlayer
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -98,13 +109,15 @@ struct ABPlayerView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
 
-                Picker("Listen to", selection: Binding(get: { player.current }, set: { player.select($0) })) {
-                    ForEach(items.indices, id: \.self) { i in Text(items[i].label).tag(i) }
+                if items.count > 1 {
+                    Picker("Listen to", selection: Binding(get: { player.current }, set: { player.select($0) })) {
+                        ForEach(items.indices, id: \.self) { i in Text(items[i].label).tag(i) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 320)
+                    .help("Switch versions without losing your place")
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(maxWidth: 320)
-                .help("Switch versions without losing your place")
 
                 Text("\(formatDuration(player.position)) / \(formatDuration(player.duration))")
                     .monospacedDigit().font(.callout).foregroundStyle(.secondary)

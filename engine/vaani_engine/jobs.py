@@ -88,6 +88,7 @@ class JobContext:
 
     def __init__(self, manager: "JobManager", job: Job, plan: Plan):
         self._manager = manager
+        self.registry = manager.registry
         self.job = job
         self.plan = plan
         self.options: dict = job.params.get("options", {})
