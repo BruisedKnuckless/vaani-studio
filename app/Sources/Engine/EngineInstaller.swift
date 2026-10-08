@@ -62,6 +62,10 @@ final class EngineInstaller {
         }
         cancelled = false
         log.removeAll()
+        // Keep macOS from App-Napping (and throttling the disk for) the install while the window is in the background.
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled],
+                                                             reason: "Installing the Vaani engine")
+        defer { ProcessInfo.processInfo.endActivity(activity) }
         let engine = Self.engineDir
         let fm = FileManager.default
         try? fm.createDirectory(at: engine, withIntermediateDirectories: true)
@@ -103,6 +107,7 @@ final class EngineInstaller {
         let process = Process()
         process.executableURL = tool
         process.arguments = arguments
+        process.qualityOfService = .userInitiated
         process.currentDirectoryURL = directory
         var env = ProcessInfo.processInfo.environment
         env["UV_PYTHON_INSTALL_DIR"] = Self.supportDir.appending(path: "python").path

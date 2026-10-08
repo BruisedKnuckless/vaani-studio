@@ -8,6 +8,7 @@ import Foundation
 ///   VAANI_DEBUG_SNAPSHOT=/path/to/dir                                 save window snapshots every 3 s
 ///   VAANI_DEBUG_AUTOSTART=1                                           press Start once the plan is ready
 ///   VAANI_DEBUG_SIZE=1100x1600                                        resize the window (for full-page snapshots)
+///   VAANI_DEBUG_SETUP=1                                               press "Install the Engine" automatically
 @MainActor
 enum DebugSupport {
     static let env = ProcessInfo.processInfo.environment
@@ -15,6 +16,7 @@ enum DebugSupport {
     static var screen: Screen? { env["VAANI_DEBUG_SCREEN"].flatMap(Screen.init(rawValue:)) }
     static var file: URL? { env["VAANI_DEBUG_FILE"].map { URL(fileURLWithPath: $0) } }
     static var autostart: Bool { env["VAANI_DEBUG_AUTOSTART"] == "1" }
+    static var autoSetup: Bool { env["VAANI_DEBUG_SETUP"] == "1" }
 
     static func startSnapshots() {
         guard let dir = env["VAANI_DEBUG_SNAPSHOT"] else { return }

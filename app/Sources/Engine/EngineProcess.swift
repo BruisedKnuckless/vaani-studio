@@ -38,6 +38,7 @@ final class EngineProcess {
         let process = Process()
         process.executableURL = engineDir.appending(path: ".venv/bin/python")
         process.arguments = ["-W", "ignore", "-m", "vaani_engine.server", "--port", "0"]
+        process.qualityOfService = .userInitiated
         process.currentDirectoryURL = engineDir
 
         var env = ProcessInfo.processInfo.environment

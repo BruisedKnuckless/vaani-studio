@@ -81,6 +81,9 @@ final class AppModel {
         #endif
         if EngineInstaller.needsInstall {
             engineState = .needsSetup
+            #if DEBUG
+            if DebugSupport.autoSetup { await runSetup() }
+            #endif
             return
         }
         await restartEngine()
@@ -160,7 +163,10 @@ final class AppModel {
 
     func refreshJobs() async {
         guard let client else { return }
-        if let list = try? await client.jobs() { jobs = list }
+        if let list = try? await client.jobs() {
+            jobs = list
+            updateBusyActivity()
+        }
     }
 
     func upsert(_ job: Job) {
@@ -168,6 +174,22 @@ final class AppModel {
             jobs[index] = job
         } else {
             jobs.insert(job, at: 0)
+        }
+        updateBusyActivity()
+    }
+
+    /// While any job runs, stop macOS from App-Napping the app (which also throttles the engine's
+    /// CPU and disk) when its window is in the background.
+    private var busyActivity: NSObjectProtocol?
+
+    private func updateBusyActivity() {
+        let busy = jobs.contains(where: \.isActive)
+        if busy, busyActivity == nil {
+            busyActivity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled],
+                                                                 reason: "Processing audio")
+        } else if !busy, let activity = busyActivity {
+            ProcessInfo.processInfo.endActivity(activity)
+            busyActivity = nil
         }
     }
 
