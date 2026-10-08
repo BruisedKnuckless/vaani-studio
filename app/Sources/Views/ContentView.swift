@@ -22,6 +22,8 @@ struct ContentView: View {
         } detail: {
             Group {
                 switch app.engineState {
+                case .needsSetup:
+                    SetupView()
                 case .ready:
                     detail
                 case .starting:
@@ -72,6 +74,7 @@ struct EngineStatusBadge: View {
 
     private var color: Color {
         switch app.engineState {
+        case .needsSetup: .blue
         case .ready: app.offline ? .orange : .green
         case .starting: .yellow
         case .failed: .red
@@ -80,6 +83,7 @@ struct EngineStatusBadge: View {
 
     private var text: String {
         switch app.engineState {
+        case .needsSetup: "Setup needed"
         case .ready: app.offline ? "Engine ready · Offline" : "Engine ready"
         case .starting: "Starting engine…"
         case .failed: "Engine stopped"

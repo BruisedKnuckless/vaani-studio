@@ -30,6 +30,7 @@ enum Screen: String, CaseIterable, Identifiable, Hashable {
 }
 
 enum EngineState: Equatable {
+    case needsSetup
     case starting
     case ready
     case failed(String)
@@ -45,6 +46,7 @@ final class AppModel {
     var lastError: String?
 
     private(set) var client: EngineClient?
+    let installer = EngineInstaller()
     private let engine = EngineProcess()
     private var eventsTask: Task<Void, Never>?
     private var started = false
@@ -77,7 +79,18 @@ final class AppModel {
         if let screen = DebugSupport.screen { self.screen = screen }
         DebugSupport.startSnapshots()
         #endif
+        if EngineInstaller.needsInstall {
+            engineState = .needsSetup
+            return
+        }
         await restartEngine()
+    }
+
+    /// First-launch (or post-update) engine install for shared builds.
+    func runSetup() async {
+        if await installer.install() {
+            await restartEngine()
+        }
     }
 
     func restartEngine() async {

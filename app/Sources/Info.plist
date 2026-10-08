@@ -30,7 +30,7 @@
 		<true/>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Personal use</string>
+	<string>Open source under the MIT License</string>
 	<key>VaaniEngineDir</key>
 	<string>$(VAANI_ENGINE_DIR)</string>
 </dict>

@@ -1,0 +1,27 @@
+Vaani Studio: installing on your Mac
+====================================
+
+Needs: an Apple Silicon Mac (M1 or newer) with macOS 14 Sonoma or later, an internet
+connection for the first setup, and about 15 GB of free space (engine plus AI models).
+
+1. Drag "Vaani" onto the "Applications" folder in this window.
+
+2. Open Vaani from your Applications folder.
+   Vaani is free and open source, but it isn't notarised by Apple, so the first time
+   macOS will say it "could not verify" the app. That's expected:
+     a. Click "Done" (do not move it to the Trash).
+     b. Open System Settings > Privacy & Security.
+     c. Scroll down to the message about "Vaani" and click "Open Anyway".
+     d. Confirm with your password or Touch ID, then click "Open Anyway" again.
+   You only need to do this once.
+
+   (Alternative for Terminal users:  xattr -dr com.apple.quarantine /Applications/Vaani.app )
+
+3. On first launch, click "Install the Engine". Vaani downloads its AI engine
+   (about 2 GB) once. AI models download the first time you use each feature.
+
+4. Optional: add API keys in Settings for cloud processing:
+   Sarvam AI (best for Marathi/Hindi), Anthropic Claude or OpenAI (translation),
+   and a free Hugging Face token for some optional on-device models.
+
+Source code, help and updates: see the project's GitHub page.

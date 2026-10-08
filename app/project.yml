@@ -2,14 +2,14 @@ name: Vaani
 options:
   bundleIdPrefix: com.viraj
   deploymentTarget:
-    macOS: "15.0"
+    macOS: "14.0"
   createIntermediateGroups: true
 settings:
   base:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
 targets:
   Vaani:
     type: application
@@ -25,7 +25,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        NSHumanReadableCopyright: Personal use
+        NSHumanReadableCopyright: "Open source under the MIT License"
         # Where the Python engine lives during development. Packaged builds use
         # ~/Library/Application Support/VaaniStudio/engine instead.
         VaaniEngineDir: $(VAANI_ENGINE_DIR)
@@ -35,7 +35,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.viraj.vaani
         PRODUCT_NAME: Vaani
-        VAANI_ENGINE_DIR: $(SRCROOT)/../engine
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
@@ -47,3 +46,10 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_STRICT_CONCURRENCY: complete
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        # Development builds run the engine straight from the checkout; shared (Release) builds
+        # install it into Application Support on first launch (see EngineInstaller).
+        Debug:
+          VAANI_ENGINE_DIR: $(SRCROOT)/../engine
+        Release:
+          VAANI_ENGINE_DIR: ""

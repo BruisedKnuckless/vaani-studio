@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sets up everything Vaani Studio needs on this Mac:
-#   - command-line tools (ffmpeg, rubberband, uv, xcodegen) via Homebrew
+#   - command-line tools (uv, xcodegen) via Homebrew
 #   - the Python engine (Python 3.11 venv with the ML libraries)
 #   - the isolated voice runtime (Chatterbox, pinned torch/transformers)
 # Models are not downloaded here; the app fetches them on first use or from the Models screen.
@@ -19,7 +19,7 @@ if ! command -v brew >/dev/null; then
   echo "Homebrew is required: https://brew.sh" >&2
   exit 1
 fi
-for tool in ffmpeg rubberband uv xcodegen; do
+for tool in uv xcodegen; do
   if ! command -v "$tool" >/dev/null; then brew install "$tool"; else echo "$tool ✓"; fi
 done
 

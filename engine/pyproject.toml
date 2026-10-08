@@ -36,8 +36,14 @@ ml = [
     "IndicTransToolkit>=1.0",
     "mlx-lm>=0.20",
     "mlx-audio>=0.2.10",
+    "webrtcvad-wheels>=2.0.14",  # prebuilt replacement for webrtcvad (no compiler needed on install)
     "setuptools<81",
 ]
+
+[tool.uv]
+# webrtcvad (pulled in by mlx-audio) is source-only and needs a C compiler; webrtcvad-wheels
+# provides the same `webrtcvad` module prebuilt, so Macs without Xcode can install the engine.
+override-dependencies = ["webrtcvad; sys_platform == 'never'"]
 
 [dependency-groups]
 dev = ["pytest>=8"]

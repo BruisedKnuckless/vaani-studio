@@ -1,21 +1,19 @@
-"""Audio decode/encode through ffmpeg, plus small helpers.
+"""Audio decode/encode with PyAV (FFmpeg libraries bundled in the wheel, so no Homebrew needed),
+plus small helpers.
 
 Audio is held as float32 numpy arrays shaped (channels, samples).
 """
 
 from __future__ import annotations
 
-import json
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 
-from .config import find_tool
-
 OUTPUT_FORMATS = ("wav", "m4a", "mp3", "flac")
+ENCODERS = {"m4a": ("aac", 256_000), "mp3": ("libmp3lame", 320_000)}
 
 
 @dataclass
@@ -26,24 +24,34 @@ class AudioInfo:
     codec: str
 
 
+def _audio_stream(container, path):
+    stream = next((s for s in container.streams if s.type == "audio"), None)
+    if stream is None:
+        raise ValueError(f"No audio in {Path(path).name}")
+    return stream
+
+
+def _channels(stream) -> int:
+    layout = getattr(stream.codec_context, "layout", None)
+    return int(getattr(layout, "nb_channels", 0) or getattr(stream.codec_context, "channels", 0) or 1)
+
+
 def probe(path: str | Path) -> AudioInfo:
-    cmd = [
-        find_tool("ffprobe"), "-v", "error", "-select_streams", "a:0",
-        "-show_entries", "stream=sample_rate,channels,codec_name:format=duration",
-        "-of", "json", str(path),
-    ]
-    out = subprocess.run(cmd, capture_output=True, check=True, text=True).stdout
-    data = json.loads(out)
-    streams = data.get("streams") or []
-    if not streams:
-        raise ValueError(f"No audio stream in {path}")
-    s = streams[0]
-    return AudioInfo(
-        duration=float(data.get("format", {}).get("duration", 0.0)),
-        sample_rate=int(s.get("sample_rate", 0)),
-        channels=int(s.get("channels", 0)),
-        codec=s.get("codec_name", ""),
-    )
+    import av
+
+    try:
+        with av.open(str(path)) as container:
+            stream = _audio_stream(container, path)
+            if container.duration:
+                duration = container.duration / av.time_base
+            elif stream.duration and stream.time_base:
+                duration = float(stream.duration * stream.time_base)
+            else:
+                duration = 0.0
+            return AudioInfo(duration=float(duration), sample_rate=int(stream.codec_context.sample_rate or 0),
+                             channels=_channels(stream), codec=stream.codec_context.name or "")
+    except av.FFmpegError as exc:
+        raise RuntimeError(f"Can't read {Path(path).name}: {exc}") from exc
 
 
 def load(path: str | Path, sr: int = 48000, channels: int | None = None) -> np.ndarray:
@@ -51,17 +59,23 @@ def load(path: str | Path, sr: int = 48000, channels: int | None = None) -> np.n
 
     channels=None keeps the source layout (capped at stereo).
     """
-    if channels is None:
-        channels = min(max(probe(path).channels, 1), 2)
-    cmd = [
-        find_tool("ffmpeg"), "-nostdin", "-v", "error", "-i", str(path),
-        "-vn", "-f", "f32le", "-acodec", "pcm_f32le", "-ac", str(channels), "-ar", str(sr), "-",
-    ]
-    proc = subprocess.run(cmd, capture_output=True)
-    if proc.returncode != 0:
-        raise RuntimeError(f"ffmpeg could not decode {path}: {proc.stderr.decode(errors='ignore')[-500:]}")
-    audio = np.frombuffer(proc.stdout, dtype=np.float32)
-    return audio.reshape(-1, channels).T.copy()
+    import av
+
+    try:
+        with av.open(str(path)) as container:
+            stream = _audio_stream(container, path)
+            if channels is None:
+                channels = min(max(_channels(stream), 1), 2)
+            resampler = av.AudioResampler(format="fltp", layout="mono" if channels == 1 else "stereo", rate=sr)
+            chunks = []
+            for frame in container.decode(stream):
+                chunks.extend(f.to_ndarray() for f in resampler.resample(frame))
+            chunks.extend(f.to_ndarray() for f in resampler.resample(None))
+    except av.FFmpegError as exc:
+        raise RuntimeError(f"Can't decode {Path(path).name}: {exc}") from exc
+    if not chunks:
+        return np.zeros((channels, 0), dtype=np.float32)
+    return np.ascontiguousarray(np.concatenate(chunks, axis=1), dtype=np.float32)
 
 
 def save(path: str | Path, audio: np.ndarray, sr: int, fmt: str | None = None) -> Path:
@@ -78,16 +92,21 @@ def save(path: str | Path, audio: np.ndarray, sr: int, fmt: str | None = None) -
     if fmt == "flac":
         sf.write(path, audio.T, sr, subtype="PCM_24", format="FLAC")
         return path
-    codec = ["-c:a", "aac", "-b:a", "256k"] if fmt == "m4a" else ["-c:a", "libmp3lame", "-b:a", "320k"]
-    cmd = [
-        find_tool("ffmpeg"), "-nostdin", "-v", "error", "-y",
-        "-f", "f32le", "-ar", str(sr), "-ac", str(audio.shape[0]), "-i", "-",
-        *codec, str(path),
-    ]
-    data = np.ascontiguousarray(audio.T, dtype=np.float32).tobytes()
-    proc = subprocess.run(cmd, input=data, capture_output=True)
-    if proc.returncode != 0:
-        raise RuntimeError(f"ffmpeg could not encode {path}: {proc.stderr.decode(errors='ignore')[-500:]}")
+
+    import av
+
+    codec, bitrate = ENCODERS[fmt]
+    layout = "mono" if audio.shape[0] == 1 else "stereo"
+    data = np.ascontiguousarray(np.clip(audio[:2], -1.0, 1.0), dtype=np.float32)
+    with av.open(str(path), "w") as container:
+        stream = container.add_stream(codec, rate=sr, layout=layout)
+        stream.bit_rate = bitrate
+        frame = av.AudioFrame.from_ndarray(data, format="fltp", layout=layout)
+        frame.sample_rate = sr
+        for packet in stream.encode(frame):
+            container.mux(packet)
+        for packet in stream.encode(None):
+            container.mux(packet)
     return path
 
 

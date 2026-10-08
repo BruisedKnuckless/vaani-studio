@@ -1,6 +1,6 @@
 """Command-line access to every pipeline, mainly for testing without the app.
 
-    vaani enhance "Timeline 1.wav" --quality high --mode local
+    vaani enhance talk.wav --quality high --mode local
     vaani plan dub --from hi --to en --mode auto
     vaani models list
     vaani serve

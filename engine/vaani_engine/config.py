@@ -8,7 +8,6 @@ through POST /settings.
 from __future__ import annotations
 
 import os
-import shutil
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -78,21 +77,6 @@ class Settings:
 
 
 settings = Settings.from_env()
-
-
-def find_tool(name: str) -> str:
-    """Locate a command-line tool. Apps launched from Finder don't get the shell PATH."""
-    override = os.environ.get(f"VAANI_{name.upper()}")
-    if override:
-        return override
-    found = shutil.which(name)
-    if found:
-        return found
-    for prefix in ("/opt/homebrew/bin", "/usr/local/bin"):
-        candidate = Path(prefix) / name
-        if candidate.exists():
-            return str(candidate)
-    raise FileNotFoundError(f"{name} not found. Install it with: brew install {name}")
 
 
 def ensure_dirs() -> None:
