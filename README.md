@@ -69,7 +69,7 @@ The engine listens only on `127.0.0.1`, with a fresh access token each launch.
 You need an Apple Silicon Mac with Xcode and [Homebrew](https://brew.sh).
 
 ```bash
-git clone <this repo> && cd VaaniStudio
+git clone https://github.com/BruisedKnuckless/vaani-studio.git && cd vaani-studio
 scripts/bootstrap.sh            # xcodegen + uv, Python 3.11 engine and voice runtimes, then runs the tests
 scripts/build_app.sh Debug      # dev build that runs the engine straight from engine/
 open build/Vaani.app

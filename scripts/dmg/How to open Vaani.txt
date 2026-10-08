@@ -24,4 +24,4 @@ connection for the first setup, and about 15 GB of free space (engine plus AI mo
    Sarvam AI (best for Marathi/Hindi), Anthropic Claude or OpenAI (translation),
    and a free Hugging Face token for some optional on-device models.
 
-Source code, help and updates: see the project's GitHub page.
+Source code, help and updates: https://github.com/BruisedKnuckless/vaani-studio
