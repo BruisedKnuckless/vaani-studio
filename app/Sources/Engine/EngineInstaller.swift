@@ -70,7 +70,7 @@ final class EngineInstaller {
             (0, URL(fileURLWithPath: "/usr/bin/rsync"),
              ["-a", "--delete", "--exclude", ".venv", "--exclude", "__pycache__", "--exclude", ".installed-version",
               source.path + "/", engine.path + "/"], Self.supportDir),
-            (1, uv, ["python", "install", "3.11"], engine),
+            (1, uv, ["python", "install", "3.11", "--no-bin"], engine),  // no python3.11 shim in ~/.local/bin
             (2, uv, ["sync", "--frozen", "--no-dev", "--extra", "ml", "--python", "3.11"], engine),
             (3, uv, ["sync", "--frozen", "--no-dev", "--python", "3.11"], engine.appending(path: "runtimes/mlxvoice")),
             (3, uv, ["sync", "--frozen", "--no-dev", "--python", "3.11"], engine.appending(path: "runtimes/voice")),
