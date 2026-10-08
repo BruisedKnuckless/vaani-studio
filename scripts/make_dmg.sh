@@ -26,9 +26,10 @@ rm -rf "$RES/engine" "$RES/bin"
 mkdir -p "$RES/engine" "$RES/bin"
 rsync -a --exclude .venv --exclude __pycache__ --exclude .pytest_cache --exclude tests \
   "$ROOT/engine/" "$RES/engine/"
-# Version marker: changes whenever the code or any lockfile changes, so the app re-syncs after updates.
-LOCKS_HASH="$(cat engine/uv.lock engine/runtimes/*/uv.lock | shasum -a 256 | cut -c1-12)"
-echo "$VERSION+$COMMIT+$LOCKS_HASH" > "$RES/engine/VERSION"
+# Version marker: a hash of the bundled engine files, so the app re-runs setup only when the
+# engine or its lockfiles actually change (app-only updates start straight away).
+ENGINE_HASH="$(cd "$RES/engine" && find . -type f ! -name VERSION -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 | cut -c1-12)"
+echo "$VERSION+$ENGINE_HASH" > "$RES/engine/VERSION"
 UV="$(python3 -c 'import os,shutil; print(os.path.realpath(shutil.which("uv")))')"
 cp "$UV" "$RES/bin/uv"
 chmod +x "$RES/bin/uv"
